@@ -31,7 +31,9 @@ if (!url) { console.error('nothing pasted'); process.exit(1); }
 
 const pool = new Pool({ connectionString: url, connectionTimeoutMillis: 20_000, ssl: /localhost|127\.0\.0\.1/.test(url) ? undefined : { rejectUnauthorized: false } });
 const want = ['agent_calls', 'operators', 'runs', 'sessions', 'skill_calls', 'tool_calls', 'transcript_lines', 'users'];
-const list = async () => new Set((await pool.query(`select tablename from pg_tables where schemaname='current_schema'`.replace('current_schema', "'public'"))).rows.map((r) => r.tablename));
+const list = async () => new Set(
+  (await pool.query('select tablename from pg_tables where schemaname = $1', ['public'])).rows.map((r) => r.tablename),
+);
 
 try {
   const before = await list();
