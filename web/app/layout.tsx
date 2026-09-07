@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { cookies } from 'next/headers';
+import { COOKIE, verifySession } from '@/lib/session';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -7,7 +9,9 @@ export const metadata: Metadata = {
   description: 'Every session, agent, skill and tool call across the Oneshot pipeline.',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const secret = process.env.SESSION_SECRET ?? '';
+  const session = secret ? await verifySession(secret, (await cookies()).get(COOKIE)?.value) : null;
   return (
     <html lang="en">
       <head>
@@ -28,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/agents">Agents</Link>
               <Link href="/skills">Skills</Link>
             </div>
-            <div className="nav-right" />
+            <div className="nav-right">{session ? <><span>{session.u}</span><form className="signout" method="post" action="/api/logout"><button type="submit">sign out</button></form></> : null}</div>
           </div>
         </nav>
         <main className="main">{children}</main>

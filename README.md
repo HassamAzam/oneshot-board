@@ -21,7 +21,7 @@ Nothing here touches `~/Documents/oneshot`; the collector only reads `state/runs
 2. **SQL Editor → New query** → paste all of [`supabase/schema.sql`](supabase/schema.sql) → **Run**.
 3. **Project Settings → Database → Connection string → URI**, pick the **Transaction** pooler (port `6543`), fill in the password. That string is your `DATABASE_URL`.
 
-Nothing else from Supabase is used — no anon key, no service-role key, no RLS. The board talks to Postgres directly and is protected by its own login.
+Nothing else from Supabase is used — no anon key, no service-role key, no RLS. The board talks to Postgres directly; logins live in its `users` table as scrypt hashes.
 
 ## 2. Vercel
 
@@ -31,10 +31,19 @@ Import this repo, set **Root Directory = `web`**. Environment variables:
 |---|---|
 | `DATABASE_URL` | the Supabase **Transaction pooler** URI from step 1.3 |
 | `INGEST_TOKEN` | a long random secret — `openssl rand -hex 32` — the collector presents the same value |
-| `DASHBOARD_USER` | login name for the board |
-| `DASHBOARD_PASSWORD` | its password (HTTP Basic auth on every page; `/api/ingest` uses the token instead) |
+| `SESSION_SECRET` | signs the login session cookie — `openssl rand -hex 32` |
 
 Deploy, then check `https://<your-app>.vercel.app/api/health` → `{"ok":true,...}`.
+
+### Create your login
+
+Accounts are rows in the `users` table — username plus an scrypt hash of the password, computed on your machine. Pull the deployed env vars once so the script can reach Supabase, then add yourself:
+
+```bash
+cd ~/Documents/oneshot-board/web && vercel env pull .env.local && npm run user:add -- hassam
+```
+
+It prompts for the password without echo (or takes `USER_PASSWORD=…`). Run it again with the same username to reset a password. Sessions are HttpOnly cookies signed with `SESSION_SECRET`, valid 7 days; **sign out** is in the top bar. `/api/ingest` is unaffected — it authenticates with `INGEST_TOKEN`.
 
 ## 3. Collector (your laptop)
 
@@ -119,6 +128,7 @@ cd ~/Documents/oneshot-board/web && NODE_OPTIONS="--require ../scripts/ipv4-dns.
 cd web && npm install
 echo 'DATABASE_URL=postgresql://postgres@127.0.0.1:5432/oneshot_board' > .env.local   # any Postgres with schema.sql applied
 echo 'INGEST_TOKEN=localtest' >> .env.local
+echo "SESSION_SECRET=$(openssl rand -hex 32)" >> .env.local && npm run user:add -- me       # omit SESSION_SECRET to run the board open
 npm run dev                                                                            # http://localhost:3100
 BOARD_URL=http://localhost:3100 INGEST_TOKEN=localtest node ../collector/src/index.mjs --once
 ```

@@ -211,3 +211,18 @@ details.raw pre { background: var(--sunken); border: 1px solid var(--rule-2); bo
 .live-ind { display: inline-flex; align-items: center; gap: .4rem; font-family: "IBM Plex Mono", monospace; font-size: .7rem; color: var(--ink-3); }
 .live-ind i { width: 7px; height: 7px; border-radius: 50%; background: var(--live); display: inline-block; animation: pulse 1.6s ease-in-out infinite; }
 .tint { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+
+/* ---- login ---- */
+.login { min-height: 70vh; display: grid; place-items: center; padding: 2rem 0; }
+.login-card { width: min(22rem, 100%); background: var(--surface); border: 1px solid var(--rule); border-top: 3px solid var(--accent); border-radius: 4px; box-shadow: var(--shadow); padding: 1.6rem 1.6rem 1.4rem; display: flex; flex-direction: column; gap: .8rem; }
+.login-card h1 { font-family: "IBM Plex Serif", Georgia, serif; font-weight: 600; font-size: 1.45rem; letter-spacing: -.012em; }
+.login-sub { color: var(--ink-2); font-size: .82rem; }
+.login-err { color: var(--bad); font-size: .84rem; font-weight: 500; }
+.login-card label { display: flex; flex-direction: column; gap: .3rem; font-family: "IBM Plex Mono", monospace; font-size: .66rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.login-card input { font: inherit; font-family: "IBM Plex Sans", sans-serif; font-size: .95rem; letter-spacing: 0; text-transform: none; padding: .55rem .7rem; border: 1px solid var(--rule); border-radius: 3px; background: var(--paper); color: var(--ink); }
+.login-card input:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.login-card button { margin-top: .4rem; font: inherit; font-weight: 600; padding: .6rem; border: 0; border-radius: 3px; background: var(--accent); color: #fff; cursor: pointer; }
+.login-card button:hover { filter: brightness(1.08); }
+.signout { display: inline; }
+.signout button { font: inherit; font-family: "IBM Plex Mono", monospace; font-size: .7rem; color: var(--ink-3); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.signout button:hover { color: var(--ink); }

@@ -138,3 +138,11 @@ create table if not exists transcript_lines (
   body               jsonb not null,             -- the verbatim JSONL line
   primary key (session_id, line_no)
 );
+
+-- Board logins. password_hash is scrypt (Node built-in), written by `npm run user:add` in web/.
+create table if not exists users (
+  username       text primary key,
+  password_hash  text not null,
+  created_at     timestamptz not null default now(),
+  last_login_at  timestamptz
+);

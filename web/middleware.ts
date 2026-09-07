@@ -1,30 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { COOKIE, verifySession } from '@/lib/session';
 
 /**
- * HTTP Basic auth for the dashboard. The ingest and health routes use their own bearer token.
- * With DASHBOARD_USER/DASHBOARD_PASSWORD unset the board runs open — fine for localhost, not for Vercel.
+ * Every page needs a valid session cookie; /login, the ingest route (bearer token) and
+ * /api/health are open. With SESSION_SECRET unset the board runs open — local dev only.
  */
-export function middleware(req: NextRequest) {
-  const user = process.env.DASHBOARD_USER ?? '';
-  const pass = process.env.DASHBOARD_PASSWORD ?? '';
-  if (!user && !pass) return NextResponse.next();
-
-  const header = req.headers.get('authorization') ?? '';
-  if (header.startsWith('Basic ')) {
-    try {
-      const decoded = atob(header.slice(6));
-      const i = decoded.indexOf(':');
-      const u = i < 0 ? decoded : decoded.slice(0, i);
-      const p = i < 0 ? '' : decoded.slice(i + 1);
-      if (u === user && p === pass) return NextResponse.next();
-    } catch { /* fall through */ }
-  }
-  return new NextResponse('Authentication required', {
-    status: 401,
-    headers: { 'WWW-Authenticate': 'Basic realm="Oneshot Board", charset="UTF-8"' },
-  });
+export async function middleware(req: NextRequest) {
+  const secret = process.env.SESSION_SECRET ?? '';
+  if (!secret) return NextResponse.next();
+  const { pathname, search } = req.nextUrl;
+  const session = await verifySession(secret, req.cookies.get(COOKIE)?.value);
+  if (pathname === '/login') return session ? NextResponse.redirect(new URL('/', req.url)) : NextResponse.next();
+  if (session) return NextResponse.next();
+  const url = new URL('/login', req.url);
+  if (pathname !== '/') url.searchParams.set('next', pathname + search);
+  return NextResponse.redirect(url);
 }
 
 export const config = {
-  matcher: ['/((?!api/ingest|api/health|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!api/ingest|api/health|api/login|api/logout|_next/static|_next/image|favicon.ico).*)'],
 };
