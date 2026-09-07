@@ -18,7 +18,7 @@ import { journalToRun, readJournal, runDirs, sessionKey, ts } from './journal.mj
 import { extractTranscript, parseTranscriptName } from './extract.mjs';
 import { loadHookIndex } from './hooks.mjs';
 import { Outbox, atomicWrite } from './outbox.mjs';
-import { postBatch } from './ship.mjs';
+import { postBatch, postRetention } from './ship.mjs';
 
 const args = new Set(process.argv.slice(2));
 const ONCE = args.has('--once');
@@ -125,6 +125,14 @@ async function flush() {
   }
 }
 
+async function retention() {
+  if (DRY || !CFG.boardUrl || !CFG.ingestToken) return;
+  try {
+    const r = await postRetention(CFG.boardUrl, CFG.ingestToken);
+    log(r.ok ? `retention: ${r.text}` : `retention: HTTP ${r.status} ${r.text}`);
+  } catch (e) { log(`retention: ${e.message}`); }
+}
+
 if (STATS) {
   console.log(JSON.stringify({ operator, pending: outbox.counts(), files: Object.keys(state.files).length, stateDir: CFG.stateDir }, null, 2));
   process.exit(0);
@@ -134,6 +142,8 @@ log('oneshot-board collector', { oneshot: CFG.oneshotHome, board: CFG.boardUrl |
 scan();
 await flush();
 if (ONCE) { log('once: done', outbox.counts()); process.exit(0); }
+await retention();
+setInterval(() => retention(), 24 * 60 * 60_000);
 
 setInterval(scan, CFG.scanMs);
 setInterval(() => flush().catch((e) => log(`flush error: ${e.message}`)), CFG.flushMs);

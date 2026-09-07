@@ -32,6 +32,7 @@ Import this repo, set **Root Directory = `web`**. Environment variables:
 | `DATABASE_URL` | the Supabase **Transaction pooler** URI from step 1.3 |
 | `INGEST_TOKEN` | a long random secret — `openssl rand -hex 32` — the collector presents the same value |
 | `SESSION_SECRET` | signs the login session cookie — `openssl rand -hex 32` |
+| `RETENTION_DAYS` | optional, default `60`: transcript lines and tool inputs/outputs are pruned for sessions that ended longer ago than this; sessions, agents, skills and tool-call metadata are kept forever. `0` keeps everything. Keeps Supabase's free 500 MB from filling. |
 
 Deploy, then check `https://<your-app>.vercel.app/api/health` → `{"ok":true,...}`.
 
@@ -144,3 +145,5 @@ BOARD_URL=http://localhost:3100 INGEST_TOKEN=localtest node ../collector/src/ind
 | `MAX_BATCH_BYTES` | 1500000 | request size cap (Vercel allows 4.5 MB) |
 | `MAX_TOOL_OUTPUT_BYTES` | 512000 | a single tool output larger than this is truncated with a marker |
 | `ABANDON_AFTER_MS` | 900000 | a transcript silent this long with no result line is marked `abandoned` |
+
+The daemon also calls `POST /api/retention` once a day so the board prunes per its `RETENTION_DAYS`.

@@ -14,3 +14,10 @@ export async function postBatch(url, token, payload, timeoutMs = 60_000) {
     clearTimeout(t);
   }
 }
+
+/** Ask the board to prune bulky columns for sessions older than its RETENTION_DAYS. */
+export async function postRetention(url, token) {
+  const res = await fetch(`${url}/api/retention`, { method: 'POST', headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(60_000) });
+  const text = await res.text().catch(() => '');
+  return { ok: res.ok, status: res.status, text: text.slice(0, 300) };
+}
