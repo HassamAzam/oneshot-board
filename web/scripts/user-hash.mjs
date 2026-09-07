@@ -31,6 +31,7 @@ if (password.length < 8) { console.error('use at least 8 characters'); process.e
 const N = 16384, r = 8, p = 1;
 const salt = randomBytes(16);
 const hash = `scrypt$${N}$${r}$${p}$${salt.toString('base64url')}$${scryptSync(password.normalize('NFKC'), salt, 64, { N, r, p }).toString('base64url')}`;
-const sql = `insert into users (username, password_hash) values ('${username.replace(/'/g, "''")}', '${hash}')
-  on conflict (username) do update set password_hash = excluded.password_hash;`;
+// One line on purpose: a two-line statement invites copying only the first, which drops
+// the ON CONFLICT clause and fails with a duplicate-key error on the second run.
+const sql = `insert into users (username, password_hash) values ('${username.replace(/'/g, "''")}', '${hash}') on conflict (username) do update set password_hash = excluded.password_hash;`;
 console.log(`\nRun this in Supabase -> SQL Editor:\n\n${sql}\n\nThen sign in as "${username}" with the password you just typed.\n`);
