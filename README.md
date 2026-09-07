@@ -44,7 +44,13 @@ Accounts are rows in the `users` table — username plus an scrypt hash of the p
 cd ~/Documents/oneshot-board/web && vercel env pull .env.local && npm run user:add -- hassam
 ```
 
-It prompts for the password without echo (or takes `USER_PASSWORD=…`). Run it again with the same username to reset a password. Sessions are HttpOnly cookies signed with `SESSION_SECRET`, valid 7 days; **sign out** is in the top bar. `/api/ingest` is unaffected — it authenticates with `INGEST_TOKEN`.
+It prompts for the password without echo (or takes `USER_PASSWORD=…`), and for the connection string if `DATABASE_URL` is unset. Run it again with the same username to reset a password.
+
+No connection string to hand? Generate the SQL instead and paste it into Supabase's SQL editor — the password is hashed locally and never leaves your machine:
+
+```bash
+cd ~/Documents/oneshot-board/web && npm run user:hash -- hassam
+``` Sessions are HttpOnly cookies signed with `SESSION_SECRET`, valid 7 days; **sign out** is in the top bar. `/api/ingest` is unaffected — it authenticates with `INGEST_TOKEN`.
 
 ## 3. Collector (your laptop)
 
