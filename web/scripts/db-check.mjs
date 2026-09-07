@@ -44,6 +44,9 @@ if (/^db\.[a-z0-9]+\.supabase\.co$/.test(host)) problems.push(`This is the DIREC
 if (host.includes('pooler.supabase.com') && !user.includes('.')) problems.push(`The pooler routes by username, so it must be "postgres.<project-ref>", not bare "${user}".\n    ${ref ? `Yours is postgres.${ref}` : 'Copy the whole URI from Supabase -> Connect -> Transaction pooler.'}`);
 if (host.includes('pooler.supabase.com') && port !== '6543' && port !== '5432') problems.push(`Unexpected pooler port ${port} — transaction pooler is 6543.`);
 if (/[ \t\r\n]/.test(raw)) problems.push('There is whitespace in the string — a stray space or newline got pasted.');
+if (u.hash) problems.push(`The password was CUT SHORT by a "#". Everything from "#" onward (${u.hash.length} chars) was read as a URL fragment, not as the password.\n    Percent-encode it as %23, or reset the database password to something alphanumeric.`);
+if (u.search) problems.push(`There is a "?" in the string, so the password may have been cut short — "${u.search.slice(0, 24)}" was read as a query string.\n    Percent-encode it as %3F, or reset the database password.`);
+if (pw && /[@/]/.test(pw)) problems.push('The password contains @ or / — percent-encode them (%40, %2F) or the URI splits in the wrong place.');
 if (problems.length) { console.log('Problems found:'); for (const p of problems) console.log(`  ✗ ${p}`); console.log(); }
 
 process.stdout.write('Connecting… ');
