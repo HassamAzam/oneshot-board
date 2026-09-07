@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { q } from '@/lib/db';
 import { verifyPassword } from '@/lib/auth';
 import { COOKIE, signSession } from '@/lib/session';
+import { browserOrigin, isHttps } from '@/lib/origin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
 
   const fail = async () => {
     await new Promise((r) => setTimeout(r, 400));
-    const url = new URL('/login', req.url);
+    const url = new URL('/login', browserOrigin(req));
     url.searchParams.set('error', '1');
     if (next !== '/') url.searchParams.set('next', next);
     return NextResponse.redirect(url, 303);
@@ -31,9 +32,9 @@ export async function POST(req: NextRequest) {
   if (!user || !(await verifyPassword(password, user.password_hash))) return fail();
 
   await q('update users set last_login_at = now() where username = $1', [username]);
-  const res = NextResponse.redirect(new URL(next, req.url), 303);
+  const res = NextResponse.redirect(new URL(next, browserOrigin(req)), 303);
   res.cookies.set(COOKIE, await signSession(secret, username), {
-    httpOnly: true, sameSite: 'lax', secure: req.nextUrl.protocol === 'https:', path: '/', maxAge: 7 * 86_400,
+    httpOnly: true, sameSite: 'lax', secure: isHttps(req), path: '/', maxAge: 7 * 86_400,
   });
   return res;
 }

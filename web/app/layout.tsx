@@ -26,12 +26,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <nav className="nav">
           <div className="nav-in">
             <Link href="/" className="brand"><span className="dot" aria-hidden="true" />Oneshot Board</Link>
-            <div className="nav-links">
-              <Link href="/">Fleet</Link>
-              <Link href="/tickets">Tickets</Link>
-              <Link href="/agents">Agents</Link>
-              <Link href="/skills">Skills</Link>
-            </div>
+            {!secret || session ? (
+              <div className="nav-links">
+                <Link href="/">Fleet</Link>
+                <Link href="/tickets">Tickets</Link>
+                <Link href="/agents">Agents</Link>
+                <Link href="/skills">Skills</Link>
+              </div>
+            ) : null}
             <div className="nav-right">{session ? <><span>{session.u}</span><form className="signout" method="post" action="/api/logout"><button type="submit">sign out</button></form></> : null}</div>
           </div>
         </nav>
