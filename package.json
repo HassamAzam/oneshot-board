@@ -1,0 +1,14 @@
+{
+  "name": "oneshot-board",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Telemetry board for Oneshot: every session, agent, skill, tool call and transcript, posted incrementally from your desk to a hosted dashboard.",
+  "scripts": {
+    "collector": "node collector/src/index.mjs",
+    "collector:once": "node collector/src/index.mjs --once",
+    "collector:dry": "node collector/src/index.mjs --once --dry-run",
+    "collector:stats": "node collector/src/index.mjs --stats",
+    "web:dev": "npm --prefix web run dev",
+    "web:build": "npm --prefix web run build"
+  }
+}

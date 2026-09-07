@@ -1,0 +1,14 @@
+{
+  "name": "oneshot-board-collector",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Zero-dependency collector: reads Oneshot transcripts and journals, extracts sessions/agents/skills/tools, ships them to the board every 60s through a durable outbox.",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/index.mjs",
+    "once": "node src/index.mjs --once",
+    "dry": "node src/index.mjs --once --dry-run",
+    "stats": "node src/index.mjs --stats"
+  }
+}
