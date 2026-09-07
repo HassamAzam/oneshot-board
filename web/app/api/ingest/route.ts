@@ -19,13 +19,25 @@ const SPEC: Record<string, Spec> = {
 };
 const ORDER = ['operators', 'runs', 'sessions', 'agent_calls', 'skill_calls', 'tool_calls', 'transcript_lines'];
 
-function authorized(req: NextRequest): boolean {
+/**
+ * Compares the presented bearer token with INGEST_TOKEN in constant time.
+ * On failure it reports the two LENGTHS only — enough to tell a truncated paste from a
+ * genuine mismatch, which is the difference between a one-minute fix and an afternoon.
+ */
+function authorized(req: NextRequest): { ok: true } | { ok: false; hint: string } {
   const token = process.env.INGEST_TOKEN ?? '';
   const header = req.headers.get('authorization') ?? '';
-  if (!token || !header.startsWith('Bearer ')) return false;
+  if (!token) return { ok: false, hint: 'INGEST_TOKEN is not set on the server' };
+  if (!header.startsWith('Bearer ')) return { ok: false, hint: 'no bearer token presented' };
   const a = Buffer.from(header.slice(7));
   const b = Buffer.from(token);
-  return a.length === b.length && timingSafeEqual(a, b);
+  if (a.length !== b.length) {
+    return { ok: false, hint: `length mismatch: server has ${b.length} chars, collector sent ${a.length}` };
+  }
+  if (!timingSafeEqual(a, b)) {
+    return { ok: false, hint: `same length (${b.length}) but different value — the two tokens are not the same string` };
+  }
+  return { ok: true };
 }
 
 async function upsert(client: PoolClient, table: string, rows: Record<string, unknown>[] | undefined): Promise<number> {
@@ -57,8 +69,8 @@ async function upsert(client: PoolClient, table: string, rows: Record<string, un
 }
 
 export async function POST(req: NextRequest) {
-  if (!process.env.INGEST_TOKEN) return NextResponse.json({ error: 'INGEST_TOKEN is not configured on the server' }, { status: 500 });
-  if (!authorized(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  const auth = authorized(req);
+  if (!auth.ok) return NextResponse.json({ error: 'unauthorized', hint: auth.hint }, { status: 401 });
   let body: Record<string, Record<string, unknown>[]>;
   try { body = await req.json(); } catch { return NextResponse.json({ error: 'body must be JSON' }, { status: 400 }); }
 
