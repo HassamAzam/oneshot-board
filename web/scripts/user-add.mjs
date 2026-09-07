@@ -10,7 +10,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { Pool } from 'pg';
 
-for (const f of ['.env.local', '.env']) {
+for (const f of (process.env.USE_ENV_LOCAL === '0' ? [] : ['.env.local', '.env'])) {
   if (!existsSync(f)) continue;
   for (const line of readFileSync(f, 'utf8').split('\n')) {
     const m = line.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)\s*$/);
@@ -19,16 +19,26 @@ for (const f of ['.env.local', '.env']) {
 }
 const username = String(process.argv[2] ?? '').trim().toLowerCase();
 if (!username) { console.error('usage: npm run user:add -- <username>'); process.exit(1); }
-if (!process.env.DATABASE_URL) { console.error('DATABASE_URL is not set (env or web/.env.local)'); process.exit(1); }
 
+/** Reads a line without echoing it, so passwords and connection strings stay out of shell history. */
 function ask(prompt) {
   return new Promise((resolve) => {
     const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
     const w = rl._writeToOutput;
-    rl.question(prompt, (v) => { rl.close(); process.stdout.write('\n'); resolve(v); });
+    rl.question(prompt, (v) => { rl.close(); process.stdout.write('\n'); resolve(v.trim()); });
     rl._writeToOutput = function (s) { if (s.includes(prompt)) w.call(this, prompt); };
   });
 }
+
+if (!process.env.DATABASE_URL) {
+  console.log('DATABASE_URL is not set. Paste your Supabase Transaction-pooler URI');
+  console.log('(Supabase -> Project Settings -> Database -> Connection string -> URI, Transaction pooler, port 6543).');
+  console.log('Input is hidden and is never written to disk.\n');
+  process.env.DATABASE_URL = await ask('DATABASE_URL: ');
+}
+if (!process.env.DATABASE_URL) { console.error('no DATABASE_URL given'); process.exit(1); }
+if (!/^postgres(ql)?:\/\//.test(process.env.DATABASE_URL)) { console.error('that does not look like a postgres URI'); process.exit(1); }
+if (process.env.DATABASE_URL.includes('[YOUR-PASSWORD]')) { console.error('replace [YOUR-PASSWORD] in the URI with your database password first'); process.exit(1); }
 let password = process.env.USER_PASSWORD ?? '';
 if (!password) {
   password = await ask(`password for ${username}: `);
