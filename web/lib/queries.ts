@@ -59,12 +59,12 @@ export async function runningSessions() {
 
 export type PhaseChip = { phase: string; lap: number; status: string; model: string | null; turns: number; tokens_out: number; session_id: string };
 export type RunWithPhases = Run & {
-  user_email: string | null; hostname: string | null; n_sessions: string; tokens_out: string; weighted: string;
+  github_login: string | null; user_email: string | null; hostname: string | null; n_sessions: string; tokens_out: string; weighted: string;
   phases: PhaseChip[] | null;
 };
 export async function recentRuns(limit = 40) {
   return q<RunWithPhases>(`
-    select r.*, o.user_email, o.hostname,
+    select r.*, o.github_login, o.user_email, o.hostname,
       (select count(*) from sessions s where s.run_id = r.run_id) as n_sessions,
       (select coalesce(sum(tokens_out),0) from sessions s where s.run_id = r.run_id) as tokens_out,
       (select coalesce(sum(weighted),0) from sessions s where s.run_id = r.run_id) as weighted,
@@ -119,8 +119,8 @@ export async function toolSummary() {
 }
 
 export async function ticketRuns(iid: number) {
-  return q<Run & { user_email: string | null; hostname: string | null }>(`
-    select r.*, o.user_email, o.hostname from runs r left join operators o on o.id = r.operator_id
+  return q<Run & { github_login: string | null; user_email: string | null; hostname: string | null }>(`
+    select r.*, o.github_login, o.user_email, o.hostname from runs r left join operators o on o.id = r.operator_id
     where r.ticket_iid = $1 order by r.started_at desc nulls last`, [iid]);
 }
 
@@ -148,8 +148,8 @@ export async function allTickets() {
 }
 
 export async function sessionById(id: string) {
-  const [s] = await q<Session & { title: string | null; url: string | null; run_status: string | null; user_email: string | null; hostname: string | null }>(`
-    select s.*, r.title, r.url, r.status as run_status, o.user_email, o.hostname
+  const [s] = await q<Session & { title: string | null; url: string | null; run_status: string | null; github_login: string | null; user_email: string | null; hostname: string | null }>(`
+    select s.*, r.title, r.url, r.status as run_status, o.github_login, o.user_email, o.hostname
     from sessions s join runs r using (run_id) left join operators o on o.id = s.operator_id
     where s.session_id = $1`, [id]);
   return s ?? null;

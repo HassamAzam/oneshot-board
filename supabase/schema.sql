@@ -2,7 +2,8 @@
 -- Every table is upsert-only from the collector; nothing here is ever deleted by the pipeline.
 
 create table if not exists operators (
-  id           text primary key,                 -- user_email, else git email, else os_user@hostname
+  id           text primary key,                 -- github login, else account email, else os_user@hostname
+  github_login text,
   user_email   text,
   git_email    text,
   hostname     text,
@@ -138,6 +139,9 @@ create table if not exists transcript_lines (
   body               jsonb not null,             -- the verbatim JSONL line
   primary key (session_id, line_no)
 );
+
+-- Added after the first deployments; harmless to re-run.
+alter table operators add column if not exists github_login text;
 
 -- Board logins. password_hash is scrypt (Node built-in), written by `npm run user:add` in web/.
 create table if not exists users (

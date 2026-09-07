@@ -54,7 +54,7 @@ export default async function Ticket({ params }: { params: Promise<{ iid: string
                   <dt>deployed</dt><dd className="mono">{r.deployed_sha ? r.deployed_sha.slice(0, 10) : '—'}</dd>
                 </dl>
                 <dl className="kv">
-                  <dt>operator</dt><dd>{r.user_email ?? r.operator_id ?? '—'}<span className="mono" style={{ display: 'block', color: 'var(--ink-3)', fontSize: '.72rem' }}>{r.hostname}</span></dd>
+                  <dt>operator</dt><dd>{r.github_login ?? r.user_email ?? r.operator_id ?? '—'}<span className="mono" style={{ display: 'block', color: 'var(--ink-3)', fontSize: '.72rem' }}>{r.hostname}</span></dd>
                   <dt>sessions</dt><dd>{ss.length}</dd>
                   <dt>output</dt><dd>{fmtTok(tokOut)} tokens · {fmtTok(weighted)} weighted</dd>
                 </dl>

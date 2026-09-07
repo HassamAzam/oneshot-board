@@ -9,7 +9,7 @@ export const maxDuration = 60;
 
 type Spec = { pk: string[]; cols: string[]; json: string[]; guard?: string; touch?: boolean };
 const SPEC: Record<string, Spec> = {
-  operators: { pk: ['id'], cols: ['id', 'user_email', 'git_email', 'hostname', 'os_user', 'last_seen'], json: [] },
+  operators: { pk: ['id'], cols: ['id', 'github_login', 'user_email', 'git_email', 'hostname', 'os_user', 'last_seen'], json: [] },
   runs: { pk: ['run_id'], cols: ['run_id', 'ticket_iid', 'title', 'url', 'status', 'branch', 'mr_iid', 'merged_sha', 'deployed_sha', 'blocked_why', 'operator_id', 'archived', 'started_at', 'ended_at'], json: [], touch: true },
   sessions: { pk: ['session_id'], cols: ['session_id', 'claude_session_id', 'run_id', 'ticket_iid', 'phase', 'lap', 'model', 'status', 'cwd', 'turns', 'tokens_in', 'tokens_out', 'cache_read', 'cache_write', 'weighted', 'started_at', 'ended_at', 'duration_ms', 'result_text', 'error_text', 'transcript_path', 'transcript_lines', 'seq', 'operator_id'], json: [], guard: 'sessions.seq <= EXCLUDED.seq', touch: true },
   agent_calls: { pk: ['tool_use_id'], cols: ['tool_use_id', 'session_id', 'parent_tool_use_id', 'subagent_type', 'description', 'prompt', 'line_no', 'turns', 'tokens_in', 'tokens_out', 'cache_read', 'cache_write', 'tool_calls', 'status', 'result_text', 'started_at', 'ended_at', 'duration_ms'], json: [] },

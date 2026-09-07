@@ -130,7 +130,7 @@ export default async function SessionPage({ params, searchParams }: { params: Pr
           <dt>claude session</dt><dd className="mono">{s.claude_session_id ?? '—'}</dd>
           <dt>cwd</dt><dd className="mono">{s.cwd ?? '—'}</dd>
           <dt>transcript</dt><dd className="mono">{s.transcript_path ?? '— (journal-only phase)'} {s.transcript_lines ? `· ${fmtInt(s.transcript_lines)} lines` : ''}</dd>
-          <dt>operator</dt><dd>{s.user_email ?? s.operator_id ?? '—'} <span className="mono" style={{ color: 'var(--ink-3)' }}>{s.hostname}</span></dd>
+          <dt>operator</dt><dd>{s.github_login ?? s.user_email ?? s.operator_id ?? '—'} <span className="mono" style={{ color: 'var(--ink-3)' }}>{s.hostname}</span></dd>
           {s.error_text ? <><dt>error</dt><dd className="err-text mono" style={{ fontSize: '.78rem' }}>{s.error_text}</dd></> : null}
         </dl>
         {s.result_text ? <details className="raw" style={{ marginTop: '.7rem' }}><summary>final result ({fmtInt(s.result_text.length)} chars)</summary><pre>{s.result_text}</pre></details> : null}
