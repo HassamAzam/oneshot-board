@@ -8,7 +8,8 @@
     "start": "next start -p 3100",
     "user:add": "node scripts/user-add.mjs",
     "user:hash": "node scripts/user-hash.mjs",
-    "db:check": "node scripts/db-check.mjs"
+    "db:check": "node scripts/db-check.mjs",
+    "db:migrate": "node scripts/db-migrate.mjs"
   },
   "dependencies": {
     "next": "^15.5.25",
