@@ -239,3 +239,15 @@ details.raw pre { background: var(--sunken); border: 1px solid var(--rule-2); bo
 .filter a.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 500; }
 .who { font-family: "IBM Plex Mono", monospace; font-size: .68rem; color: var(--ink-3); white-space: nowrap; }
 .filter-label { font-family: "IBM Plex Mono", monospace; font-size: .64rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin-right: .15rem; }
+
+/* ---- nav badge + role chips ---- */
+.nav-links a { position: relative; }
+.badge {
+  display: inline-block; margin-left: .4rem; min-width: 1.15rem; padding: 0 .3rem;
+  font-family: "IBM Plex Mono", monospace; font-size: .64rem; font-weight: 600; line-height: 1.15rem;
+  text-align: center; border-radius: 999px; background: var(--warn); color: var(--surface);
+  vertical-align: text-top;
+}
+.role { font-family: "IBM Plex Mono", monospace; font-size: .64rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: .12rem .45rem; border-radius: 3px; border: 1px solid currentColor; white-space: nowrap; }
+.role.dev { color: var(--accent); background: var(--accent-soft); }
+.role.qa  { color: var(--signal); background: var(--signal-soft); }

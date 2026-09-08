@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { COOKIE, verifySession } from '@/lib/session';
+import { safe } from '@/lib/db';
+import { openInterventionCount } from '@/lib/queries';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -12,6 +14,8 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const secret = process.env.SESSION_SECRET ?? '';
   const session = secret ? await verifySession(secret, (await cookies()).get(COOKIE)?.value) : null;
+  // A badge is not worth a broken page: a database that is down shows no number.
+  const { data: todo } = (!secret || session) ? await safe(openInterventionCount) : { data: 0 };
   return (
     <html lang="en">
       <head>
@@ -30,7 +34,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <div className="nav-links">
                 <Link href="/">Fleet</Link>
                 <Link href="/tickets">Tickets</Link>
-                <Link href="/interventions">Interventions</Link>
+                <Link href="/interventions">Interventions{todo ? <span className="badge">{todo}</span> : null}</Link>
                 <Link href="/agents">Agents</Link>
                 <Link href="/skills">Skills</Link>
               </div>

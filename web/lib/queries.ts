@@ -229,11 +229,21 @@ export async function interventions(operator?: string, open = false) {
 }
 
 export async function interventionCounts(operator?: string) {
+  // 'testcases' is the only QA gate; plan, review and merge are all a developer's call.
   const [r] = await q(`
     select count(*) filter (where state = 'waiting')  as waiting,
            count(*) filter (where state = 'pending')  as pending,
            count(*) filter (where state = 'approved') as approved,
-           count(distinct ticket_iid) filter (where state <> 'approved') as tickets_waiting
+           count(distinct ticket_iid) filter (where state <> 'approved') as tickets_waiting,
+           count(*) filter (where state <> 'approved' and gate = 'testcases')  as qa_open,
+           count(*) filter (where state <> 'approved' and gate <> 'testcases') as dev_open,
+           count(*) filter (where state <> 'approved')                         as open
     from interventions where ($1::text is null or operator_id = $1)`, [op(operator)]);
   return r;
+}
+
+/** Just the badge number. Cheap enough to run in the layout on every page. */
+export async function openInterventionCount(): Promise<number> {
+  const [r] = await q(`select count(*)::int as n from interventions where state <> 'approved'`);
+  return Number(r?.n ?? 0);
 }
