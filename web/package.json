@@ -9,7 +9,8 @@
     "user:add": "node scripts/user-add.mjs",
     "user:hash": "node scripts/user-hash.mjs",
     "db:check": "node scripts/db-check.mjs",
-    "db:migrate": "node scripts/db-migrate.mjs"
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "db:merge-operator": "node scripts/db-merge-operator.mjs"
   },
   "dependencies": {
     "next": "^15.5.25",

@@ -226,3 +226,8 @@ details.raw pre { background: var(--sunken); border: 1px solid var(--rule-2); bo
 .signout { display: inline; }
 .signout button { font: inherit; font-family: "IBM Plex Mono", monospace; font-size: .7rem; color: var(--ink-3); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .signout button:hover { color: var(--ink); }
+
+/* ---- operator filter ---- */
+.filter .cnt { font-size: .66rem; opacity: .6; margin-left: .25rem; font-variant-numeric: tabular-nums; }
+.filter a.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 500; }
+.who { font-family: "IBM Plex Mono", monospace; font-size: .68rem; color: var(--ink-3); white-space: nowrap; }

@@ -28,41 +28,59 @@ export type ToolCall = {
   started_at: string | null; ended_at: string | null; duration_ms: number | null;
 };
 export type Line = { session_id: string; line_no: number; kind: string | null; subtype: string | null; parent_tool_use_id: string | null; body: unknown };
+export type Operator = {
+  id: string; github_login: string | null; user_email: string | null; git_email: string | null;
+  hostname: string | null; os_user: string | null; last_seen: string; sessions: number; runs: number; tokens_out: string;
+};
 
-export async function fleetStats() {
+/**
+ * Every filtered query takes the operator id as $1 and uses the same guard:
+ * `($1::text is null or ... = $1)`. Null therefore means "everyone", which keeps
+ * one code path for the unfiltered and filtered views.
+ */
+const op = (v?: string) => v ?? null;
+
+export async function operatorsWithCounts() {
+  return q<Operator>(`
+    select o.*,
+      (select count(*)::int from sessions s where s.operator_id = o.id) as sessions,
+      (select count(*)::int from runs r where r.operator_id = o.id)     as runs,
+      (select coalesce(sum(tokens_out),0)::bigint from sessions s where s.operator_id = o.id) as tokens_out
+    from operators o order by last_seen desc`);
+}
+
+export async function fleetStats(operator?: string) {
   const [r] = await q(`
     select
-      (select count(*) from sessions)                                                   as sessions,
-      (select count(*) from sessions where status = 'running')                          as running,
-      (select count(distinct ticket_iid) from runs)                                     as tickets,
-      (select count(*) from runs)                                                       as runs,
-      (select count(*) from agent_calls)                                                as agent_calls,
-      (select count(*) from skill_calls)                                                as skill_calls,
-      (select count(*) from tool_calls)                                                 as tool_calls,
-      (select coalesce(sum(tokens_out),0) from sessions where started_at > now() - interval '24 hours') as tokens_out_24h,
-      (select coalesce(sum(tokens_out),0) from sessions)                                as tokens_out_total,
-      (select coalesce(sum(weighted),0) from sessions)                                  as weighted_total,
-      (select max(last_seen) from operators)                                            as last_seen,
-      (select count(*) from operators)                                                  as operators`);
+      (select count(*) from sessions where ($1::text is null or operator_id = $1))            as sessions,
+      (select count(*) from sessions where status = 'running' and ($1::text is null or operator_id = $1)) as running,
+      (select count(distinct ticket_iid) from runs where ($1::text is null or operator_id = $1)) as tickets,
+      (select count(*) from runs where ($1::text is null or operator_id = $1))                as runs,
+      (select count(*) from agent_calls a join sessions s using (session_id) where ($1::text is null or s.operator_id = $1)) as agent_calls,
+      (select count(*) from skill_calls k join sessions s using (session_id) where ($1::text is null or s.operator_id = $1)) as skill_calls,
+      (select count(*) from tool_calls t join sessions s using (session_id)  where ($1::text is null or s.operator_id = $1)) as tool_calls,
+      (select coalesce(sum(tokens_out),0) from sessions where started_at > now() - interval '24 hours' and ($1::text is null or operator_id = $1)) as tokens_out_24h,
+      (select coalesce(sum(tokens_out),0) from sessions where ($1::text is null or operator_id = $1)) as tokens_out_total,
+      (select coalesce(sum(weighted),0)   from sessions where ($1::text is null or operator_id = $1)) as weighted_total,
+      (select max(last_seen) from operators where ($1::text is null or id = $1))              as last_seen,
+      (select count(*) from operators)                                                        as operators`, [op(operator)]);
   return r;
 }
 
-export async function operators() {
-  return q(`select * from operators order by last_seen desc`);
-}
-
-export async function runningSessions() {
-  return q<Session & { title: string | null }>(`
-    select s.*, r.title from sessions s join runs r using (run_id)
-    where s.status = 'running' order by s.started_at desc nulls last`);
+export async function runningSessions(operator?: string) {
+  return q<Session & { title: string | null; github_login: string | null }>(`
+    select s.*, r.title, o.github_login from sessions s join runs r using (run_id)
+      left join operators o on o.id = s.operator_id
+    where s.status = 'running' and ($1::text is null or s.operator_id = $1)
+    order by s.started_at desc nulls last`, [op(operator)]);
 }
 
 export type PhaseChip = { phase: string; lap: number; status: string; model: string | null; turns: number; tokens_out: number; session_id: string };
 export type RunWithPhases = Run & {
-  github_login: string | null; user_email: string | null; hostname: string | null; n_sessions: string; tokens_out: string; weighted: string;
-  phases: PhaseChip[] | null;
+  github_login: string | null; user_email: string | null; hostname: string | null;
+  n_sessions: string; tokens_out: string; weighted: string; phases: PhaseChip[] | null;
 };
-export async function recentRuns(limit = 40) {
+export async function recentRuns(limit = 40, operator?: string) {
   return q<RunWithPhases>(`
     select r.*, o.github_login, o.user_email, o.hostname,
       (select count(*) from sessions s where s.run_id = r.run_id) as n_sessions,
@@ -73,27 +91,31 @@ export async function recentRuns(limit = 40) {
                        order by s.started_at nulls last, s.lap)
          from sessions s where s.run_id = r.run_id) as phases
     from runs r left join operators o on o.id = r.operator_id
-    order by r.started_at desc nulls last limit $1`, [limit]);
+    where ($2::text is null or r.operator_id = $2)
+    order by r.started_at desc nulls last limit $1`, [limit, op(operator)]);
 }
 
-export async function agentSummary() {
+export async function agentSummary(operator?: string) {
   return q(`
-    select subagent_type, count(*)::int as calls, sum((status='ok')::int)::int as ok,
-           sum((status in ('error','abandoned'))::int)::int as failed, sum(turns)::bigint as turns,
-           sum(tokens_out)::bigint as tokens_out, sum(tokens_in)::bigint as tokens_in, sum(cache_read)::bigint as cache_read,
-           sum(tool_calls)::int as tool_calls, round(avg(duration_ms))::int as avg_ms,
-           count(distinct session_id)::int as sessions, max(coalesce(ended_at, started_at)) as last_used
-    from agent_calls group by 1 order by tokens_out desc`);
+    select a.subagent_type, count(*)::int as calls, sum((a.status='ok')::int)::int as ok,
+           sum((a.status in ('error','abandoned'))::int)::int as failed, sum(a.turns)::bigint as turns,
+           sum(a.tokens_out)::bigint as tokens_out, sum(a.tokens_in)::bigint as tokens_in, sum(a.cache_read)::bigint as cache_read,
+           sum(a.tool_calls)::int as tool_calls, round(avg(a.duration_ms))::int as avg_ms,
+           count(distinct a.session_id)::int as sessions, max(coalesce(a.ended_at, a.started_at)) as last_used
+    from agent_calls a join sessions s using (session_id)
+    where ($1::text is null or s.operator_id = $1)
+    group by 1 order by tokens_out desc`, [op(operator)]);
 }
 
-export async function agentCalls(subagentType?: string, limit = 60) {
-  return q<AgentCall & { phase: string; ticket_iid: number; lap: number }>(`
-    select a.*, s.phase, s.ticket_iid, s.lap from agent_calls a join sessions s using (session_id)
-    where ($1::text is null or a.subagent_type = $1)
-    order by coalesce(a.started_at, s.started_at) desc nulls last, a.line_no desc limit $2`, [subagentType ?? null, limit]);
+export async function agentCalls(subagentType?: string, limit = 60, operator?: string) {
+  return q<AgentCall & { phase: string; ticket_iid: number; lap: number; operator_id: string | null }>(`
+    select a.*, s.phase, s.ticket_iid, s.lap, s.operator_id from agent_calls a join sessions s using (session_id)
+    where ($1::text is null or a.subagent_type = $1) and ($3::text is null or s.operator_id = $3)
+    order by coalesce(a.started_at, s.started_at) desc nulls last, a.line_no desc limit $2`,
+    [subagentType ?? null, limit, op(operator)]);
 }
 
-export async function skillSummary() {
+export async function skillSummary(operator?: string) {
   return q(`
     select k.skill_name, count(*)::int as calls, count(distinct k.session_id)::int as sessions,
            sum((k.ok is false)::int)::int as failures,
@@ -101,21 +123,38 @@ export async function skillSummary() {
            coalesce(json_agg(distinct s.phase), '[]') as phases,
            max(coalesce(k.invoked_at, s.started_at)) as last_used
     from skill_calls k join sessions s using (session_id)
-    group by 1 order by calls desc`);
+    where ($1::text is null or s.operator_id = $1)
+    group by 1 order by calls desc`, [op(operator)]);
 }
 
-export async function skillCalls(skill?: string, limit = 80) {
-  return q<SkillCall & { phase: string; ticket_iid: number; lap: number }>(`
-    select k.*, s.phase, s.ticket_iid, s.lap from skill_calls k join sessions s using (session_id)
-    where ($1::text is null or k.skill_name = $1)
-    order by coalesce(k.invoked_at, s.started_at) desc nulls last, k.line_no desc limit $2`, [skill ?? null, limit]);
+export async function skillCalls(skill?: string, limit = 80, operator?: string) {
+  return q<SkillCall & { phase: string; ticket_iid: number; lap: number; operator_id: string | null }>(`
+    select k.*, s.phase, s.ticket_iid, s.lap, s.operator_id from skill_calls k join sessions s using (session_id)
+    where ($1::text is null or k.skill_name = $1) and ($3::text is null or s.operator_id = $3)
+    order by coalesce(k.invoked_at, s.started_at) desc nulls last, k.line_no desc limit $2`,
+    [skill ?? null, limit, op(operator)]);
 }
 
-export async function toolSummary() {
+export async function toolSummary(operator?: string) {
   return q(`
-    select tool_name, count(*)::int as calls, sum(is_error::int)::int as errors,
-           sum((inside_agent is not null)::int)::int as inside_agents, round(avg(duration_ms))::int as avg_ms
-    from tool_calls group by 1 order by calls desc`);
+    select t.tool_name, count(*)::int as calls, sum(t.is_error::int)::int as errors,
+           sum((t.inside_agent is not null)::int)::int as inside_agents, round(avg(t.duration_ms))::int as avg_ms
+    from tool_calls t join sessions s using (session_id)
+    where ($1::text is null or s.operator_id = $1)
+    group by 1 order by calls desc`, [op(operator)]);
+}
+
+export async function allTickets(operator?: string) {
+  return q(`
+    select r.ticket_iid, max(r.title) as title, count(distinct r.run_id)::int as runs,
+           (select count(*)::int from sessions s where s.ticket_iid = r.ticket_iid and ($1::text is null or s.operator_id = $1)) as sessions,
+           (select coalesce(sum(tokens_out),0)::bigint from sessions s where s.ticket_iid = r.ticket_iid and ($1::text is null or s.operator_id = $1)) as tokens_out,
+           max(r.started_at) as last_started,
+           (array_agg(r.status order by r.started_at desc nulls last))[1] as status,
+           (array_agg(distinct coalesce(o.github_login, r.operator_id)) filter (where r.operator_id is not null)) as operators
+    from runs r left join operators o on o.id = r.operator_id
+    where ($1::text is null or r.operator_id = $1)
+    group by r.ticket_iid order by last_started desc nulls last`, [op(operator)]);
 }
 
 export async function ticketRuns(iid: number) {
@@ -135,16 +174,6 @@ export async function sessionsForRun(runId: string) {
       (select array_agg(distinct skill_name) from skill_calls k where k.session_id = s.session_id) as skill_names
     from sessions s where s.run_id = $1
     order by s.started_at nulls last, s.lap`, [runId]);
-}
-
-export async function allTickets() {
-  return q(`
-    select r.ticket_iid, max(r.title) as title, count(distinct r.run_id)::int as runs,
-           (select count(*)::int from sessions s where s.ticket_iid = r.ticket_iid) as sessions,
-           (select coalesce(sum(tokens_out),0)::bigint from sessions s where s.ticket_iid = r.ticket_iid) as tokens_out,
-           max(r.started_at) as last_started,
-           (array_agg(r.status order by r.started_at desc nulls last))[1] as status
-    from runs r group by r.ticket_iid order by last_started desc nulls last`);
 }
 
 export async function sessionById(id: string) {

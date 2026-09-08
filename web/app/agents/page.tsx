@@ -2,19 +2,23 @@ import Link from 'next/link';
 import { Bars, DbError, Empty, Panel, Pill } from '@/components/ui';
 import { safe } from '@/lib/db';
 import { ago, fmtDur, fmtInt, fmtTok, sessionHref } from '@/lib/format';
-import { agentCalls, agentSummary } from '@/lib/queries';
+import { agentCalls, agentSummary, operatorsWithCounts } from '@/lib/queries';
+import OperatorFilter from '@/components/OperatorFilter';
 
 export const dynamic = 'force-dynamic';
 
 export default async function Agents({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
   const agent = (Array.isArray(sp.agent) ? sp.agent[0] : sp.agent) || undefined;
+  const operator = (Array.isArray(sp.operator) ? sp.operator[0] : sp.operator) || undefined;
   const { data, error } = await safe(async () => {
-    const [summary, calls] = await Promise.all([agentSummary(), agentCalls(agent, 80)]);
-    return { summary, calls };
+    const [summary, calls, operators] = await Promise.all([
+      agentSummary(operator), agentCalls(agent, 80, operator), operatorsWithCounts(),
+    ]);
+    return { summary, calls, operators };
   });
   if (error || !data) return <DbError error={error ?? 'no data'} />;
-  const { summary, calls } = data;
+  const { summary, calls, operators } = data;
   const total = summary.reduce((a, r) => a + Number(r.calls), 0);
 
   return (
@@ -27,6 +31,8 @@ export default async function Agents({ searchParams }: { searchParams: Promise<R
         </div>
       </div>
 
+      <OperatorFilter operators={operators} selected={operator} path="/agents" extra={{ agent }} />
+
       <div className="grid main-side">
         <Panel title="By agent" note="sorted by output tokens">
           {summary.length ? (
@@ -36,7 +42,7 @@ export default async function Agents({ searchParams }: { searchParams: Promise<R
                 <tbody>
                   {summary.map((a) => (
                     <tr key={a.subagent_type}>
-                      <td><Link className="rowlink" href={`/agents?agent=${encodeURIComponent(a.subagent_type)}`}><span className="chip agent">{a.subagent_type}</span></Link></td>
+                      <td><Link className="rowlink" href={`/agents?agent=${encodeURIComponent(a.subagent_type)}${operator ? `&operator=${encodeURIComponent(operator)}` : ''}`}><span className="chip agent">{a.subagent_type}</span></Link></td>
                       <td className="num">{a.calls}</td>
                       <td className="num">{a.ok}</td>
                       <td className="num">{Number(a.failed) ? <span className="err-text">{a.failed}</span> : 0}</td>
@@ -59,7 +65,7 @@ export default async function Agents({ searchParams }: { searchParams: Promise<R
         </Panel>
       </div>
 
-      <Panel title={agent ? <>Recent calls · <span className="chip agent">{agent}</span> <Link href="/agents" style={{ marginLeft: '.5rem', fontSize: '.74rem' }}>clear</Link></> : 'Recent calls'} note="newest first">
+      <Panel title={agent ? <>Recent calls · <span className="chip agent">{agent}</span> <Link href={operator ? `/agents?operator=${encodeURIComponent(operator)}` : "/agents"} style={{ marginLeft: '.5rem', fontSize: '.74rem' }}>clear</Link></> : 'Recent calls'} note="newest first">
         {calls.length ? (
           <div className="scroll">
             <table className="tbl">

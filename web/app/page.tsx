@@ -3,19 +3,23 @@ import AutoRefresh from '@/components/AutoRefresh';
 import { Bars, DbError, Empty, Panel, PhaseStrip, Pill, Stat } from '@/components/ui';
 import { safe } from '@/lib/db';
 import { ago, fmtInt, fmtTok, sessionHref, shortModel } from '@/lib/format';
-import { agentSummary, fleetStats, recentRuns, runningSessions, skillSummary } from '@/lib/queries';
+import { agentSummary, fleetStats, operatorsWithCounts, recentRuns, runningSessions, skillSummary } from '@/lib/queries';
+import OperatorFilter from '@/components/OperatorFilter';
 
 export const dynamic = 'force-dynamic';
 
-export default async function Fleet() {
+export default async function Fleet({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const sp = await searchParams;
+  const operator = (Array.isArray(sp.operator) ? sp.operator[0] : sp.operator) || undefined;
   const { data, error } = await safe(async () => {
-    const [stats, running, runs, agents, skills] = await Promise.all([
-      fleetStats(), runningSessions(), recentRuns(30), agentSummary(), skillSummary(),
+    const [stats, running, runs, agents, skills, operators] = await Promise.all([
+      fleetStats(operator), runningSessions(operator), recentRuns(30, operator),
+      agentSummary(operator), skillSummary(operator), operatorsWithCounts(),
     ]);
-    return { stats, running, runs, agents, skills };
+    return { stats, running, runs, agents, skills, operators };
   });
   if (error || !data) return <DbError error={error ?? 'no data'} />;
-  const { stats, running, runs, agents, skills } = data;
+  const { stats, running, runs, agents, skills, operators } = data;
   const lastSeen = stats.last_seen as string | null;
   const collectorStale = !lastSeen || Date.now() - new Date(lastSeen).getTime() > 3 * 60_000;
 
@@ -32,6 +36,8 @@ export default async function Fleet() {
         </div>
         <AutoRefresh seconds={30} />
       </div>
+
+      <OperatorFilter operators={operators} selected={operator} path="/" />
 
       <div className="stats">
         <Stat label="running now" value={fmtInt(stats.running)} live={Number(stats.running) > 0} />
@@ -69,7 +75,7 @@ export default async function Fleet() {
             {runs.length ? (
               <div className="scroll">
                 <table className="tbl">
-                  <thead><tr><th>Ticket</th><th>Status</th><th className="phases">Phases</th><th className="num">Sessions</th><th className="num">Out</th><th className="num">Weighted</th><th>Started</th></tr></thead>
+                  <thead><tr><th>Ticket</th><th>Status</th><th className="phases">Phases</th><th className="num">Sessions</th><th className="num">Out</th><th className="num">Weighted</th><th>Who</th><th>Started</th></tr></thead>
                   <tbody>
                     {runs.map((r) => (
                       <tr key={r.run_id}>
@@ -79,6 +85,7 @@ export default async function Fleet() {
                         <td className="num">{r.n_sessions}</td>
                         <td className="num">{fmtTok(r.tokens_out)}</td>
                         <td className="num">{fmtTok(r.weighted)}</td>
+                        <td className="who">{r.github_login ?? r.operator_id ?? '—'}</td>
                         <td className="dim">{ago(r.started_at)}</td>
                       </tr>
                     ))}
@@ -89,14 +96,14 @@ export default async function Fleet() {
           </Panel>
 
       <div className="grid cols-2">
-          <Panel title="Agents by output tokens" note={<Link href="/agents">all agents →</Link>}>
+          <Panel title="Agents by output tokens" note={<Link href={operator ? `/agents?operator=${encodeURIComponent(operator)}` : "/agents"}>all agents →</Link>}>
             <div className="panel-body">
-              <Bars rows={agents.slice(0, 10).map((a) => ({ name: a.subagent_type, value: Number(a.tokens_out), href: `/agents?agent=${encodeURIComponent(a.subagent_type)}` }))} />
+              <Bars rows={agents.slice(0, 10).map((a) => ({ name: a.subagent_type, value: Number(a.tokens_out), href: `/agents?agent=${encodeURIComponent(a.subagent_type)}${operator ? `&operator=${encodeURIComponent(operator)}` : ''}` }))} />
             </div>
           </Panel>
-          <Panel title="Skills by calls" note={<Link href="/skills">all skills →</Link>}>
+          <Panel title="Skills by calls" note={<Link href={operator ? `/skills?operator=${encodeURIComponent(operator)}` : "/skills"}>all skills →</Link>}>
             <div className="panel-body">
-              <Bars signal rows={skills.slice(0, 10).map((k) => ({ name: k.skill_name, value: Number(k.calls), href: `/skills?skill=${encodeURIComponent(k.skill_name)}` }))} />
+              <Bars signal rows={skills.slice(0, 10).map((k) => ({ name: k.skill_name, value: Number(k.calls), href: `/skills?skill=${encodeURIComponent(k.skill_name)}${operator ? `&operator=${encodeURIComponent(operator)}` : ''}` }))} />
             </div>
           </Panel>
       </div>

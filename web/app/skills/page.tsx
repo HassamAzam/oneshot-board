@@ -2,19 +2,23 @@ import Link from 'next/link';
 import { Bars, Chips, DbError, Empty, Panel } from '@/components/ui';
 import { safe } from '@/lib/db';
 import { ago, fmtDur, fmtInt, fmtTime, sessionHref } from '@/lib/format';
-import { skillCalls, skillSummary, toolSummary } from '@/lib/queries';
+import { operatorsWithCounts, skillCalls, skillSummary, toolSummary } from '@/lib/queries';
+import OperatorFilter from '@/components/OperatorFilter';
 
 export const dynamic = 'force-dynamic';
 
 export default async function Skills({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
   const skill = (Array.isArray(sp.skill) ? sp.skill[0] : sp.skill) || undefined;
+  const operator = (Array.isArray(sp.operator) ? sp.operator[0] : sp.operator) || undefined;
   const { data, error } = await safe(async () => {
-    const [summary, calls, tools] = await Promise.all([skillSummary(), skillCalls(skill, 80), toolSummary()]);
-    return { summary, calls, tools };
+    const [summary, calls, tools, operators] = await Promise.all([
+      skillSummary(operator), skillCalls(skill, 80, operator), toolSummary(operator), operatorsWithCounts(),
+    ]);
+    return { summary, calls, tools, operators };
   });
   if (error || !data) return <DbError error={error ?? 'no data'} />;
-  const { summary, calls, tools } = data;
+  const { summary, calls, tools, operators } = data;
   const total = summary.reduce((a, r) => a + Number(r.calls), 0);
 
   return (
@@ -27,6 +31,8 @@ export default async function Skills({ searchParams }: { searchParams: Promise<R
         </div>
       </div>
 
+      <OperatorFilter operators={operators} selected={operator} path="/skills" extra={{ skill }} />
+
       <div className="grid main-side">
         <Panel title="By skill" note="most invoked first">
           {summary.length ? (
@@ -36,7 +42,7 @@ export default async function Skills({ searchParams }: { searchParams: Promise<R
                 <tbody>
                   {summary.map((k) => (
                     <tr key={k.skill_name}>
-                      <td><Link className="rowlink" href={`/skills?skill=${encodeURIComponent(k.skill_name)}`}><span className="chip skill">{k.skill_name}</span></Link></td>
+                      <td><Link className="rowlink" href={`/skills?skill=${encodeURIComponent(k.skill_name)}${operator ? `&operator=${encodeURIComponent(operator)}` : ''}`}><span className="chip skill">{k.skill_name}</span></Link></td>
                       <td className="num">{k.calls}</td>
                       <td className="num">{k.sessions}</td>
                       <td className="num">{Number(k.failures) ? <span className="err-text">{k.failures}</span> : 0}</td>
@@ -55,7 +61,7 @@ export default async function Skills({ searchParams }: { searchParams: Promise<R
         </Panel>
       </div>
 
-      <Panel title={skill ? <>Recent invocations · <span className="chip skill">{skill}</span> <Link href="/skills" style={{ marginLeft: '.5rem', fontSize: '.74rem' }}>clear</Link></> : 'Recent invocations'} note="newest first">
+      <Panel title={skill ? <>Recent invocations · <span className="chip skill">{skill}</span> <Link href={operator ? `/skills?operator=${encodeURIComponent(operator)}` : "/skills"} style={{ marginLeft: '.5rem', fontSize: '.74rem' }}>clear</Link></> : 'Recent invocations'} note="newest first">
         {calls.length ? (
           <div className="scroll">
             <table className="tbl">
