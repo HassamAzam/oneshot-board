@@ -228,6 +228,13 @@ details.raw pre { background: var(--sunken); border: 1px solid var(--rule-2); bo
 .signout button:hover { color: var(--ink); }
 
 /* ---- operator filter ---- */
+.filter { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; margin-bottom: 1rem; }
+.filter a {
+  font-family: "IBM Plex Mono", monospace; font-size: .72rem; line-height: 1.4;
+  padding: .22rem .6rem; border: 1px solid var(--rule); border-radius: 999px;
+  color: var(--ink-2); background: var(--surface); white-space: nowrap;
+}
+.filter a:hover { text-decoration: none; border-color: var(--ink-3); color: var(--ink); }
 .filter .cnt { font-size: .66rem; opacity: .6; margin-left: .25rem; font-variant-numeric: tabular-nums; }
 .filter a.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 500; }
 .who { font-family: "IBM Plex Mono", monospace; font-size: .68rem; color: var(--ink-3); white-space: nowrap; }
