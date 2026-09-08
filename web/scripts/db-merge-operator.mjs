@@ -11,7 +11,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { Pool } from 'pg';
 
-for (const f of ['.env.local', '.env']) {
+// USE_ENV_LOCAL=0 ignores the local env files, for when .env.local points at a
+// scratch database and you mean the deployed one.
+for (const f of (process.env.USE_ENV_LOCAL === '0' ? [] : ['.env.local', '.env'])) {
   if (!existsSync(f)) continue;
   for (const line of readFileSync(f, 'utf8').split('\n')) {
     const m = line.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)\s*$/);
@@ -22,6 +24,16 @@ const [from, to] = process.argv.slice(2);
 if (!from || !to) { console.error('usage: npm run db:merge-operator -- <from-id> <to-id>'); process.exit(1); }
 if (from === to) { console.error('those are the same id'); process.exit(1); }
 
+/** Say which database is about to be touched. A migration that is quiet about its
+ *  target is how you migrate the wrong one and believe you migrated the right one. */
+function announce(url) {
+  try {
+    const u = new URL(url);
+    const where = /localhost|127\.0\.0\.1/.test(u.hostname) ? '  ** LOCAL — not your deployed board **' : '';
+    console.log(`\nTarget: ${decodeURIComponent(u.username) || '(no user)'}@${u.hostname}:${u.port || '5432'}/${u.pathname.replace(/^\//, '')}${where}`);
+  } catch { console.log('\nTarget: (unparseable connection string)'); }
+}
+
 function ask(prompt) {
   return new Promise((resolve) => {
     const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
@@ -31,6 +43,7 @@ function ask(prompt) {
   });
 }
 const url = process.env.DATABASE_URL || (await ask('Paste the connection string (hidden): '));
+announce(url);
 if (!url) { console.error('nothing pasted'); process.exit(1); }
 
 const pool = new Pool({ connectionString: url, connectionTimeoutMillis: 20_000, ssl: /localhost|127\.0\.0\.1/.test(url) ? undefined : { rejectUnauthorized: false } });

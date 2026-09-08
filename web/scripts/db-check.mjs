@@ -9,6 +9,16 @@
 import { createInterface } from 'node:readline';
 import { Pool } from 'pg';
 
+/** Say which database is about to be touched. A migration that is quiet about its
+ *  target is how you migrate the wrong one and believe you migrated the right one. */
+function announce(url) {
+  try {
+    const u = new URL(url);
+    const where = /localhost|127\.0\.0\.1/.test(u.hostname) ? '  ** LOCAL — not your deployed board **' : '';
+    console.log(`\nTarget: ${decodeURIComponent(u.username) || '(no user)'}@${u.hostname}:${u.port || '5432'}/${u.pathname.replace(/^\//, '')}${where}`);
+  } catch { console.log('\nTarget: (unparseable connection string)'); }
+}
+
 function ask(prompt) {
   return new Promise((resolve) => {
     const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
@@ -20,6 +30,7 @@ function ask(prompt) {
 
 const raw = process.env.DATABASE_URL || (await ask('Paste the connection string (hidden): '));
 if (!raw) { console.error('nothing pasted'); process.exit(1); }
+announce(raw);
 
 const after = raw.slice(raw.indexOf('://') + 3);
 const bad = ['#', '?'].filter((c) => { const i = after.indexOf(c); return i > -1 && i < after.lastIndexOf('@'); });

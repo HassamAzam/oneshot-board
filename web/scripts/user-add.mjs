@@ -21,6 +21,16 @@ const username = String(process.argv[2] ?? '').trim().toLowerCase();
 if (!username) { console.error('usage: npm run user:add -- <username>'); process.exit(1); }
 
 /** Reads a line without echoing it, so passwords and connection strings stay out of shell history. */
+/** Say which database is about to be touched. A migration that is quiet about its
+ *  target is how you migrate the wrong one and believe you migrated the right one. */
+function announce(url) {
+  try {
+    const u = new URL(url);
+    const where = /localhost|127\.0\.0\.1/.test(u.hostname) ? '  ** LOCAL — not your deployed board **' : '';
+    console.log(`\nTarget: ${decodeURIComponent(u.username) || '(no user)'}@${u.hostname}:${u.port || '5432'}/${u.pathname.replace(/^\//, '')}${where}`);
+  } catch { console.log('\nTarget: (unparseable connection string)'); }
+}
+
 function ask(prompt) {
   return new Promise((resolve) => {
     const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
@@ -36,6 +46,7 @@ if (!process.env.DATABASE_URL) {
   console.log('Input is hidden and is never written to disk.\n');
   process.env.DATABASE_URL = await ask('DATABASE_URL: ');
 }
+announce(process.env.DATABASE_URL);
 if (!process.env.DATABASE_URL) { console.error('no DATABASE_URL given'); process.exit(1); }
 if (!/^postgres(ql)?:\/\//.test(process.env.DATABASE_URL)) { console.error('that does not look like a postgres URI'); process.exit(1); }
 if (process.env.DATABASE_URL.includes('[YOUR-PASSWORD]')) { console.error('replace [YOUR-PASSWORD] in the URI with your database password first'); process.exit(1); }
@@ -53,6 +64,7 @@ const key = scryptSync(password.normalize('NFKC'), salt, 64, { N, r, p });
 const hash = `scrypt$${N}$${r}$${p}$${salt.toString('base64url')}$${key.toString('base64url')}`;
 
 const url = process.env.DATABASE_URL;
+announce(url);
 const pool = new Pool({ connectionString: url, ssl: /localhost|127\.0\.0\.1/.test(url) ? undefined : { rejectUnauthorized: false } });
 await pool.query(`create table if not exists users (username text primary key, password_hash text not null, created_at timestamptz not null default now(), last_login_at timestamptz)`);
 const res = await pool.query(

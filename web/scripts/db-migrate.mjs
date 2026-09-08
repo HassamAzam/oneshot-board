@@ -16,6 +16,16 @@ import { Pool } from 'pg';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FILE = join(HERE, '..', '..', 'supabase', 'schema.sql');
 
+/** Say which database is about to be touched. A migration that is quiet about its
+ *  target is how you migrate the wrong one and believe you migrated the right one. */
+function announce(url) {
+  try {
+    const u = new URL(url);
+    const where = /localhost|127\.0\.0\.1/.test(u.hostname) ? '  ** LOCAL — not your deployed board **' : '';
+    console.log(`\nTarget: ${decodeURIComponent(u.username) || '(no user)'}@${u.hostname}:${u.port || '5432'}/${u.pathname.replace(/^\//, '')}${where}`);
+  } catch { console.log('\nTarget: (unparseable connection string)'); }
+}
+
 function ask(prompt) {
   return new Promise((resolve) => {
     const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
@@ -27,6 +37,7 @@ function ask(prompt) {
 
 const sql = readFileSync(FILE, 'utf8');
 const url = process.env.DATABASE_URL || (await ask('Paste the connection string (hidden): '));
+announce(url);
 if (!url) { console.error('nothing pasted'); process.exit(1); }
 
 const pool = new Pool({ connectionString: url, connectionTimeoutMillis: 20_000, ssl: /localhost|127\.0\.0\.1/.test(url) ? undefined : { rejectUnauthorized: false } });
