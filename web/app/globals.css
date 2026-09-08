@@ -238,3 +238,4 @@ details.raw pre { background: var(--sunken); border: 1px solid var(--rule-2); bo
 .filter .cnt { font-size: .66rem; opacity: .6; margin-left: .25rem; font-variant-numeric: tabular-nums; }
 .filter a.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 500; }
 .who { font-family: "IBM Plex Mono", monospace; font-size: .68rem; color: var(--ink-3); white-space: nowrap; }
+.filter-label { font-family: "IBM Plex Mono", monospace; font-size: .64rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin-right: .15rem; }

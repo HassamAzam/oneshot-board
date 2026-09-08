@@ -14,7 +14,9 @@ export default function OperatorFilter({
   path: string;
   extra?: Record<string, string | undefined>;
 }) {
-  if (operators.length < 2 && !selected) return null;
+  // Rendered even for a single operator: it is the page's only statement of whose
+  // work you are looking at, and a filter that disappears reads as a missing feature.
+  if (!operators.length) return null;
   const href = (id?: string) => {
     const p = new URLSearchParams();
     for (const [k, v] of Object.entries(extra)) if (v) p.set(k, v);
@@ -25,6 +27,7 @@ export default function OperatorFilter({
   const total = operators.reduce((a, o) => a + o.sessions, 0);
   return (
     <div className="filter" role="group" aria-label="Filter by operator">
+      <span className="filter-label">whose work</span>
       <Link href={href()} className={selected ? '' : 'on'} title={`${fmtInt(total)} sessions across everyone`}>
         everyone <span className="cnt">{fmtInt(total)}</span>
       </Link>
