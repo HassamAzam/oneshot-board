@@ -11,13 +11,14 @@ type Spec = { pk: string[]; cols: string[]; json: string[]; guard?: string; touc
 const SPEC: Record<string, Spec> = {
   operators: { pk: ['id'], cols: ['id', 'github_login', 'user_email', 'git_email', 'hostname', 'os_user', 'last_seen'], json: [] },
   runs: { pk: ['run_id'], cols: ['run_id', 'ticket_iid', 'title', 'url', 'status', 'branch', 'mr_iid', 'merged_sha', 'deployed_sha', 'blocked_why', 'operator_id', 'archived', 'started_at', 'ended_at'], json: [], touch: true },
+  interventions: { pk: ['id'], cols: ['id', 'run_id', 'ticket_iid', 'gate', 'state', 'requested_at', 'feedback', 'rounds', 'operator_id'], json: ['feedback'], touch: true },
   sessions: { pk: ['session_id'], cols: ['session_id', 'claude_session_id', 'run_id', 'ticket_iid', 'phase', 'lap', 'model', 'status', 'cwd', 'turns', 'tokens_in', 'tokens_out', 'cache_read', 'cache_write', 'weighted', 'started_at', 'ended_at', 'duration_ms', 'result_text', 'error_text', 'transcript_path', 'transcript_lines', 'seq', 'operator_id'], json: [], guard: 'sessions.seq <= EXCLUDED.seq', touch: true },
   agent_calls: { pk: ['tool_use_id'], cols: ['tool_use_id', 'session_id', 'parent_tool_use_id', 'subagent_type', 'description', 'prompt', 'line_no', 'turns', 'tokens_in', 'tokens_out', 'cache_read', 'cache_write', 'tool_calls', 'status', 'result_text', 'started_at', 'ended_at', 'duration_ms'], json: [] },
   skill_calls: { pk: ['tool_use_id'], cols: ['tool_use_id', 'session_id', 'parent_tool_use_id', 'inside_agent', 'skill_name', 'args', 'line_no', 'ok', 'invoked_at'], json: [] },
   tool_calls: { pk: ['tool_use_id'], cols: ['tool_use_id', 'session_id', 'parent_tool_use_id', 'inside_agent', 'tool_name', 'input_summary', 'input', 'output_text', 'is_error', 'line_no', 'started_at', 'ended_at', 'duration_ms'], json: ['input'] },
   transcript_lines: { pk: ['session_id', 'line_no'], cols: ['session_id', 'line_no', 'kind', 'subtype', 'parent_tool_use_id', 'body'], json: ['body'] },
 };
-const ORDER = ['operators', 'runs', 'sessions', 'agent_calls', 'skill_calls', 'tool_calls', 'transcript_lines'];
+const ORDER = ['operators', 'runs', 'interventions', 'sessions', 'agent_calls', 'skill_calls', 'tool_calls', 'transcript_lines'];
 
 /**
  * Compares the presented bearer token with INGEST_TOKEN in constant time.

@@ -140,6 +140,24 @@ create table if not exists transcript_lines (
   primary key (session_id, line_no)
 );
 
+-- Human review gates: the three points where a Review-labelled run waits for a
+-- person. NOT failures — a blocked run is a different thing entirely. The board only
+-- DISPLAYS these; the answer is given in Slack or on the GitLab ticket, never here.
+create table if not exists interventions (
+  id            text primary key,          -- <run_id>:<gate>
+  run_id        text not null references runs(run_id) on delete cascade,
+  ticket_iid    integer not null,
+  gate          text not null,             -- plan | testcases | merge
+  state         text not null,             -- waiting | approved | pending
+  requested_at  timestamptz,               -- when the ask was posted, if it was
+  feedback      jsonb,                     -- replies so far, oldest first
+  rounds        integer not null default 0,
+  operator_id   text references operators(id),
+  updated_at    timestamptz not null default now()
+);
+create index if not exists interventions_state  on interventions(state);
+create index if not exists interventions_ticket on interventions(ticket_iid);
+
 -- Added after the first deployments; harmless to re-run.
 alter table operators add column if not exists github_login text;
 

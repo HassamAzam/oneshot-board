@@ -28,6 +28,12 @@ export type ToolCall = {
   started_at: string | null; ended_at: string | null; duration_ms: number | null;
 };
 export type Line = { session_id: string; line_no: number; kind: string | null; subtype: string | null; parent_tool_use_id: string | null; body: unknown };
+export type Intervention = {
+  id: string; run_id: string; ticket_iid: number; gate: string; state: string;
+  requested_at: string | null; feedback: string[] | null; rounds: number; operator_id: string | null;
+  updated_at: string; title: string | null; url: string | null; run_status: string | null;
+};
+
 export type Operator = {
   id: string; github_login: string | null; user_email: string | null; git_email: string | null;
   hostname: string | null; os_user: string | null; last_seen: string; sessions: number; runs: number; tokens_out: string;
@@ -205,4 +211,29 @@ export async function linesForSession(id: string, page: number, per = 120) {
     [id, (page - 1) * per, per]);
   const [{ count }] = await q<{ count: string }>(`select count(*) from transcript_lines where session_id = $1`, [id]);
   return { rows, total: Number(count), per };
+}
+
+
+/**
+ * The human review gates. Waiting first, because that is the whole point of the page;
+ * everything else is history. `open` filters to the gates that still owe an answer.
+ */
+export async function interventions(operator?: string, open = false) {
+  return q<Intervention>(`
+    select i.*, r.title, r.url, r.status as run_status
+    from interventions i join runs r using (run_id)
+    where ($1::text is null or i.operator_id = $1)
+      and ($2::boolean is false or i.state <> 'approved')
+    order by (i.state = 'waiting') desc, (i.state = 'pending') desc, i.updated_at desc`,
+    [op(operator), open]);
+}
+
+export async function interventionCounts(operator?: string) {
+  const [r] = await q(`
+    select count(*) filter (where state = 'waiting')  as waiting,
+           count(*) filter (where state = 'pending')  as pending,
+           count(*) filter (where state = 'approved') as approved,
+           count(distinct ticket_iid) filter (where state <> 'approved') as tickets_waiting
+    from interventions where ($1::text is null or operator_id = $1)`, [op(operator)]);
+  return r;
 }
