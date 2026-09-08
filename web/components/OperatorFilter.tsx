@@ -33,8 +33,9 @@ export default function OperatorFilter({
       </Link>
       {operators.map((o) => (
         <Link key={o.id} href={href(o.id)} className={selected === o.id ? 'on' : ''}
-          title={`${o.user_email ?? o.id}${o.hostname ? ` · ${o.hostname}` : ''} · last seen ${ago(o.last_seen)}`}>
-          {o.github_login ?? o.id} <span className="cnt">{fmtInt(o.sessions)}</span>
+          title={[o.github_login && `github: ${o.github_login}`, o.user_email, o.hostname, `last seen ${ago(o.last_seen)}`]
+            .filter(Boolean).join(' · ')}>
+          {o.id} <span className="cnt">{fmtInt(o.sessions)}</span>
         </Link>
       ))}
     </div>

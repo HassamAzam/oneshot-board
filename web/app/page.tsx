@@ -85,7 +85,7 @@ export default async function Fleet({ searchParams }: { searchParams: Promise<Re
                         <td className="num">{r.n_sessions}</td>
                         <td className="num">{fmtTok(r.tokens_out)}</td>
                         <td className="num">{fmtTok(r.weighted)}</td>
-                        <td className="who">{r.github_login ?? r.operator_id ?? '—'}</td>
+                        <td className="who">{r.operator_id ?? '—'}</td>
                         <td className="dim">{ago(r.started_at)}</td>
                       </tr>
                     ))}
