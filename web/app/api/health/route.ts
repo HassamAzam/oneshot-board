@@ -12,7 +12,11 @@ export async function GET() {
         (select count(*) from sessions)  as sessions,
         (select max(last_seen) from operators) as last_seen,
         (select count(*) from users)     as users,
-        (select count(*) from users where password_hash not like 'scrypt$%') as users_with_unusable_password`);
+        (select count(*) from users where password_hash not like 'scrypt$%') as users_with_unusable_password,
+        (select count(*) from operators) as operators,
+        -- Desks that have reported in the last hour. A count only: this route is public,
+        -- so it says how many are shipping, never who they are.
+        (select count(*) from operators where last_seen > now() - interval '1 hour') as operators_active`);
     const hint = Number(r.users) === 0
       ? 'no accounts yet — run: npm run user:add -- <username>'
       : Number(r.users_with_unusable_password) > 0
