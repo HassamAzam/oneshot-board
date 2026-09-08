@@ -56,6 +56,7 @@ export function statusClass(s: unknown): string {
   switch (String(s ?? '')) {
     case 'ok': case 'done': return 's-ok';
     case 'running': case 'claimed': return 's-live';
+    case 'stalled': return 's-warn';
     case 'warned': case 'parked': case 'blocked': return 's-warn';
     case 'failed': case 'error': case 'refused': case 'aborted': return 's-bad';
     default: return 's-muted';

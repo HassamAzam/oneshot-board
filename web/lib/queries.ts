@@ -10,7 +10,7 @@ export type Session = {
   model: string | null; status: string; cwd: string | null; turns: number; tokens_in: string; tokens_out: string;
   cache_read: string; cache_write: string; weighted: string | null; started_at: string | null; ended_at: string | null;
   duration_ms: string | null; result_text: string | null; error_text: string | null; transcript_path: string | null;
-  transcript_lines: number; seq: string; operator_id: string | null;
+  transcript_lines: number; last_activity_at: string | null; seq: string; operator_id: string | null;
 };
 export type AgentCall = {
   tool_use_id: string; session_id: string; parent_tool_use_id: string | null; subagent_type: string; description: string | null;
@@ -59,7 +59,8 @@ export async function fleetStats(operator?: string) {
   const [r] = await q(`
     select
       (select count(*) from sessions where ($1::text is null or operator_id = $1))            as sessions,
-      (select count(*) from sessions where status = 'running' and ($1::text is null or operator_id = $1)) as running,
+      (select count(*) from sessions where status in ('running','stalled') and ($1::text is null or operator_id = $1)) as running,
+      (select count(*) from sessions where status = 'stalled' and ($1::text is null or operator_id = $1)) as stalled,
       (select count(distinct ticket_iid) from runs where ($1::text is null or operator_id = $1)) as tickets,
       (select count(*) from runs where ($1::text is null or operator_id = $1))                as runs,
       (select count(*) from agent_calls a join sessions s using (session_id) where ($1::text is null or s.operator_id = $1)) as agent_calls,
@@ -77,8 +78,8 @@ export async function runningSessions(operator?: string) {
   return q<Session & { title: string | null; github_login: string | null }>(`
     select s.*, r.title, o.github_login from sessions s join runs r using (run_id)
       left join operators o on o.id = s.operator_id
-    where s.status = 'running' and ($1::text is null or s.operator_id = $1)
-    order by s.started_at desc nulls last`, [op(operator)]);
+    where s.status in ('running', 'stalled') and ($1::text is null or s.operator_id = $1)
+    order by (s.status = 'stalled') desc, s.started_at desc nulls last`, [op(operator)]);
 }
 
 export type PhaseChip = { phase: string; lap: number; status: string; model: string | null; turns: number; tokens_out: number; session_id: string };

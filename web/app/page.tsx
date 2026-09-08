@@ -40,7 +40,8 @@ export default async function Fleet({ searchParams }: { searchParams: Promise<Re
       <OperatorFilter operators={operators} selected={operator} path="/" />
 
       <div className="stats">
-        <Stat label="running now" value={fmtInt(stats.running)} live={Number(stats.running) > 0} />
+        <Stat label="running now" value={fmtInt(stats.running)} live={Number(stats.running) > 0}
+          sub={Number(stats.stalled) ? `${fmtInt(stats.stalled)} quiet for >15m` : undefined} />
         <Stat label="sessions" value={fmtInt(stats.sessions)} sub={`${fmtInt(stats.runs)} runs · ${fmtInt(stats.tickets)} tickets`} />
         <Stat label="agent calls" value={fmtInt(stats.agent_calls)} />
         <Stat label="skill calls" value={fmtInt(stats.skill_calls)} />
@@ -53,16 +54,17 @@ export default async function Fleet({ searchParams }: { searchParams: Promise<Re
             {running.length ? (
               <div className="scroll">
                 <table className="tbl">
-                  <thead><tr><th>Ticket</th><th>Phase</th><th>Model</th><th className="num">Turns</th><th className="num">Out</th><th>Started</th></tr></thead>
+                  <thead><tr><th>Ticket</th><th>Phase</th><th>Model</th><th className="num">Turns</th><th className="num">Out</th><th>Started</th><th>Last wrote</th></tr></thead>
                   <tbody>
                     {running.map((s) => (
                       <tr key={s.session_id}>
                         <td><Link className="rowlink" href={`/tickets/${s.ticket_iid}`}>#{s.ticket_iid}</Link><span className="sub">{s.title}</span></td>
-                        <td><Link href={sessionHref(s.session_id)}><Pill status="running" /> {s.phase}{s.lap ? ` · lap ${s.lap}` : ''}</Link></td>
+                        <td><Link href={sessionHref(s.session_id)}><Pill status={s.status} /> {s.phase}{s.lap ? ` · lap ${s.lap}` : ''}</Link></td>
                         <td className="mono">{shortModel(s.model)}</td>
                         <td className="num">{s.turns}</td>
                         <td className="num">{fmtTok(s.tokens_out)}</td>
                         <td className="dim">{ago(s.started_at)}</td>
+                        <td className={s.status === 'stalled' ? 'err-text' : 'dim'}>{ago(s.last_activity_at)}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -55,6 +55,7 @@ create table if not exists sessions (
   error_text         text,
   transcript_path    text,
   transcript_lines   integer not null default 0,
+  last_activity_at   timestamptz,               -- when the transcript last grew; silence is not death
   seq                bigint not null default 0,  -- transcript byte offset: the monotonic guard
   operator_id        text references operators(id),
   updated_at         timestamptz not null default now()
@@ -160,6 +161,7 @@ create index if not exists interventions_ticket on interventions(ticket_iid);
 
 -- Added after the first deployments; harmless to re-run.
 alter table operators add column if not exists github_login text;
+alter table sessions  add column if not exists last_activity_at timestamptz;
 
 -- Board logins. password_hash is scrypt (Node built-in), written by `npm run user:add` in web/.
 create table if not exists users (
