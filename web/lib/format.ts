@@ -23,6 +23,22 @@ export function fmtDur(ms: unknown): string {
   return `${h}h ${m % 60}m`;
 }
 
+/** Compact hours, for compute-time totals: "48m", "3.2h", "1,284h". */
+export function fmtHours(ms: unknown): string {
+  const x = n(ms);
+  if (!x) return '0h';
+  const h = x / 3_600_000;
+  if (h < 1) return `${Math.max(1, Math.round(x / 60_000))}m`;
+  if (h < 10) return `${h.toFixed(1)}h`;
+  return `${Math.round(h).toLocaleString('en-US')}h`;
+}
+
+/** A percentage from a part and a whole, guarding divide-by-zero. */
+export function pct(part: unknown, whole: unknown): number {
+  const w = n(whole);
+  return w ? Math.round((n(part) / w) * 100) : 0;
+}
+
 export function ago(iso: unknown): string {
   if (!iso) return '—';
   const t = new Date(String(iso)).getTime();

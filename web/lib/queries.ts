@@ -63,15 +63,74 @@ export async function fleetStats(operator?: string) {
       (select count(*) from sessions where status = 'stalled' and ($1::text is null or operator_id = $1)) as stalled,
       (select count(distinct ticket_iid) from runs where ($1::text is null or operator_id = $1)) as tickets,
       (select count(*) from runs where ($1::text is null or operator_id = $1))                as runs,
+      -- A ticket "ships" when a run reaches done: it made it through every phase to merge.
+      (select count(distinct ticket_iid) from runs where status = 'done' and ($1::text is null or operator_id = $1)) as tickets_shipped,
       (select count(*) from agent_calls a join sessions s using (session_id) where ($1::text is null or s.operator_id = $1)) as agent_calls,
       (select count(*) from skill_calls k join sessions s using (session_id) where ($1::text is null or s.operator_id = $1)) as skill_calls,
       (select count(*) from tool_calls t join sessions s using (session_id)  where ($1::text is null or s.operator_id = $1)) as tool_calls,
+      (select count(*) from tool_calls t join sessions s using (session_id)  where t.is_error and ($1::text is null or s.operator_id = $1)) as tool_errors,
+      -- Compute time: how long the agents actually ran, summed across sessions.
+      (select coalesce(sum(duration_ms),0) from sessions where ($1::text is null or operator_id = $1)) as compute_ms_total,
+      (select coalesce(sum(duration_ms),0) from sessions where started_at > now() - interval '24 hours' and ($1::text is null or operator_id = $1)) as compute_ms_24h,
+      -- Outcome mix, for the success rate. Only sessions that actually finished count.
+      (select count(*) from sessions where status = 'ok' and ($1::text is null or operator_id = $1)) as sessions_ok,
+      (select count(*) from sessions where status in ('failed','refused') and ($1::text is null or operator_id = $1)) as sessions_bad,
+      (select count(*) from sessions where lap > 0 and ($1::text is null or operator_id = $1)) as sessions_rework,
       (select coalesce(sum(tokens_out),0) from sessions where started_at > now() - interval '24 hours' and ($1::text is null or operator_id = $1)) as tokens_out_24h,
+      (select coalesce(sum(tokens_out),0) from sessions where started_at > now() - interval '48 hours' and started_at <= now() - interval '24 hours' and ($1::text is null or operator_id = $1)) as tokens_out_prev_24h,
       (select coalesce(sum(tokens_out),0) from sessions where ($1::text is null or operator_id = $1)) as tokens_out_total,
       (select coalesce(sum(weighted),0)   from sessions where ($1::text is null or operator_id = $1)) as weighted_total,
       (select max(last_seen) from operators where ($1::text is null or id = $1))              as last_seen,
-      (select count(*) from operators)                                                        as operators`, [op(operator)]);
+      -- Desks still checking in (operators seen in the last 10 minutes).
+      (select count(*) from operators where last_seen > now() - interval '10 minutes' and ($1::text is null or id = $1)) as desks_reporting,
+      (select count(*) from operators where ($1::text is null or id = $1))                    as operators`, [op(operator)]);
   return r;
+}
+
+export type DayActivity = { day: string; sessions: number; tokens_out: string; compute_ms: string };
+/** One row per day for the last `days` days, gaps filled with zeros so the chart is continuous. */
+export async function activityByDay(days = 14, operator?: string) {
+  return q<DayActivity>(`
+    select to_char(d, 'YYYY-MM-DD') as day,
+           coalesce(a.sessions, 0)::int   as sessions,
+           coalesce(a.tokens_out, 0)      as tokens_out,
+           coalesce(a.compute_ms, 0)      as compute_ms
+    from generate_series((now() - make_interval(days => $1 - 1))::date, now()::date, interval '1 day') d
+    left join (
+      select date_trunc('day', started_at)::date as day,
+             count(*) as sessions, sum(tokens_out) as tokens_out, sum(duration_ms) as compute_ms
+      from sessions
+      where started_at is not null and ($2::text is null or operator_id = $2)
+      group by 1
+    ) a on a.day = d::date
+    order by d`, [days, op(operator)]);
+}
+
+/** Agents ranked by compute time — agent_calls carry a real duration, so this is exact. */
+export async function agentsByTime(operator?: string, limit = 10) {
+  return q<{ subagent_type: string; ms: string; calls: number }>(`
+    select a.subagent_type, coalesce(sum(a.duration_ms),0)::bigint as ms, count(*)::int as calls
+    from agent_calls a join sessions s using (session_id)
+    where ($1::text is null or s.operator_id = $1)
+    group by 1 order by ms desc nulls last limit $2`, [op(operator), limit]);
+}
+
+/**
+ * Skills ranked by the compute time of the sessions they ran in. Skill calls have no
+ * duration of their own (they are a point event), so this ATTRIBUTES each session's
+ * compute to every skill invoked in it — a proxy for "which skills show up in the
+ * heaviest work", counted once per session so repeat calls don't inflate it.
+ */
+export async function skillsByCompute(operator?: string, limit = 10) {
+  return q<{ skill_name: string; ms: string; calls: number; sessions: number }>(`
+    select skill_name, sum(duration_ms)::bigint as ms, sum(calls)::int as calls, count(*)::int as sessions
+    from (
+      select k.skill_name, s.session_id, max(s.duration_ms) as duration_ms, count(*)::int as calls
+      from skill_calls k join sessions s using (session_id)
+      where ($1::text is null or s.operator_id = $1)
+      group by k.skill_name, s.session_id
+    ) t
+    group by skill_name order by ms desc nulls last limit $2`, [op(operator), limit]);
 }
 
 export async function runningSessions(operator?: string) {
@@ -107,11 +166,11 @@ export async function agentSummary(operator?: string) {
     select a.subagent_type, count(*)::int as calls, sum((a.status='ok')::int)::int as ok,
            sum((a.status in ('error','abandoned'))::int)::int as failed, sum(a.turns)::bigint as turns,
            sum(a.tokens_out)::bigint as tokens_out, sum(a.tokens_in)::bigint as tokens_in, sum(a.cache_read)::bigint as cache_read,
-           sum(a.tool_calls)::int as tool_calls, round(avg(a.duration_ms))::int as avg_ms,
+           sum(a.tool_calls)::int as tool_calls, round(avg(a.duration_ms))::int as avg_ms, coalesce(sum(a.duration_ms),0)::bigint as ms,
            count(distinct a.session_id)::int as sessions, max(coalesce(a.ended_at, a.started_at)) as last_used
     from agent_calls a join sessions s using (session_id)
     where ($1::text is null or s.operator_id = $1)
-    group by 1 order by tokens_out desc`, [op(operator)]);
+    group by 1 order by ms desc nulls last`, [op(operator)]);
 }
 
 export async function agentCalls(subagentType?: string, limit = 60, operator?: string) {

@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { COOKIE, verifySession } from '@/lib/session';
 import { safe } from '@/lib/db';
 import { openInterventionCount } from '@/lib/queries';
+import ThemeToggle from '@/components/ThemeToggle';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -17,7 +18,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // A badge is not worth a broken page: a database that is down shows no number.
   const { data: todo } = (!secret || session) ? await safe(openInterventionCount) : { data: 0 };
   return (
-    <html lang="en">
+    // The inline script below sets data-theme before hydration; tell React that attribute diff is expected.
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -25,6 +27,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@600;700&display=swap"
         />
+        {/* Apply the saved theme before first paint so the toggle never flashes. */}
+        <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem('ob-theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}` }} />
       </head>
       <body>
         <nav className="nav">
@@ -39,7 +43,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <Link href="/skills">Skills</Link>
               </div>
             ) : null}
-            <div className="nav-right">{session ? <><span>{session.u}</span><form className="signout" method="post" action="/api/logout"><button type="submit">sign out</button></form></> : null}</div>
+            <div className="nav-right"><ThemeToggle />{session ? <><span>{session.u}</span><form className="signout" method="post" action="/api/logout"><button type="submit">sign out</button></form></> : null}</div>
           </div>
         </nav>
         <main className="main">{children}</main>
