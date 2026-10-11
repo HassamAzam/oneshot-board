@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { Bars, Chips, DbError, Empty, Panel } from '@/components/ui';
+import { Bars, Chips, DbError, Empty, Panel, Tile } from '@/components/ui';
 import { safe } from '@/lib/db';
-import { ago, fmtDur, fmtInt, fmtTime, sessionHref } from '@/lib/format';
+import { ago, fmtDur, fmtInt, fmtTime, pct, sessionHref } from '@/lib/format';
 import { operatorsWithCounts, skillCalls, skillSummary, toolSummary } from '@/lib/queries';
 import OperatorFilter from '@/components/OperatorFilter';
 
@@ -20,6 +20,8 @@ export default async function Skills({ searchParams }: { searchParams: Promise<R
   if (error || !data) return <DbError error={error ?? 'no data'} />;
   const { summary, calls, tools, operators } = data;
   const total = summary.reduce((a, r) => a + Number(r.calls), 0);
+  const failures = summary.reduce((a, r) => a + Number(r.failures), 0);
+  const toolCalls = tools.reduce((a, t) => a + Number(t.calls), 0);
 
   return (
     <>
@@ -29,6 +31,13 @@ export default async function Skills({ searchParams }: { searchParams: Promise<R
           <h1>Which skills were loaded, by whom, in which phase</h1>
           <p className="sub">{fmtInt(total)} skill invocations across {summary.length} skills.</p>
         </div>
+      </div>
+
+      <div className="tiles">
+        <Tile lead label="skills used" value={fmtInt(summary.length)} sub="distinct" />
+        <Tile label="invocations" value={fmtInt(total)} sub="all skills" />
+        <Tile label="failure rate" tone="signal" value={`${pct(failures, total)}%`} sub={`${fmtInt(failures)} failed loads`} />
+        <Tile label="tool calls" value={fmtInt(toolCalls)} sub={`${tools.length} tool types`} />
       </div>
 
       <OperatorFilter operators={operators} selected={operator} path="/skills" extra={{ skill }} />

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { DbError, Empty, Panel, Pill } from '@/components/ui';
+import { DbError, Empty, Panel, Pill, Tile } from '@/components/ui';
 import { safe } from '@/lib/db';
 import { ago, fmtInt, fmtTok } from '@/lib/format';
 import { allTickets, operatorsWithCounts } from '@/lib/queries';
@@ -16,6 +16,9 @@ export default async function Tickets({ searchParams }: { searchParams: Promise<
   });
   if (error || !data) return <DbError error={error ?? 'no data'} />;
   const { tickets, operators } = data;
+  const shipped = tickets.filter((t) => t.status === 'done').length;
+  const liveNow = tickets.filter((t) => t.status === 'running' || t.status === 'claimed').length;
+  const totalOut = tickets.reduce((a, t) => a + Number(t.tokens_out), 0);
   return (
     <>
       <div className="page-head">
@@ -24,6 +27,12 @@ export default async function Tickets({ searchParams }: { searchParams: Promise<
           <h1>Every ticket the pipeline has touched</h1>
           <p className="sub">{fmtInt(tickets.length)} tickets. A ticket that ran more than once lists every run.</p>
         </div>
+      </div>
+      <div className="tiles">
+        <Tile lead label="tickets" value={fmtInt(tickets.length)} sub="all time" />
+        <Tile label="shipped" tone="ok" value={fmtInt(shipped)} sub="passed all phases" />
+        <Tile label="running now" live={liveNow > 0} value={fmtInt(liveNow)} sub="latest run live" />
+        <Tile label="output tokens" value={fmtTok(totalOut)} sub="across all tickets" />
       </div>
       <OperatorFilter operators={operators} selected={operator} path="/tickets" />
       <Panel title="Tickets" note="latest run first">

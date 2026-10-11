@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { Bars, DbError, Empty, Panel, Pill } from '@/components/ui';
+import { Bars, DbError, Empty, Panel, Pill, Tile } from '@/components/ui';
 import { safe } from '@/lib/db';
-import { ago, fmtDur, fmtInt, fmtTok, sessionHref } from '@/lib/format';
+import { ago, fmtDur, fmtHours, fmtInt, fmtTok, pct, sessionHref } from '@/lib/format';
 import { agentCalls, agentSummary, operatorsWithCounts } from '@/lib/queries';
 import OperatorFilter from '@/components/OperatorFilter';
 
@@ -20,6 +20,8 @@ export default async function Agents({ searchParams }: { searchParams: Promise<R
   if (error || !data) return <DbError error={error ?? 'no data'} />;
   const { summary, calls, operators } = data;
   const total = summary.reduce((a, r) => a + Number(r.calls), 0);
+  const totalMs = summary.reduce((a, r) => a + Number(r.ms), 0);
+  const totalFailed = summary.reduce((a, r) => a + Number(r.failed), 0);
 
   return (
     <>
@@ -31,18 +33,26 @@ export default async function Agents({ searchParams }: { searchParams: Promise<R
         </div>
       </div>
 
+      <div className="tiles">
+        <Tile lead label="compute time" value={<>{fmtHours(totalMs).replace(/h$/, '')}<small>h</small></>} sub="across all agents" />
+        <Tile label="agent calls" value={fmtInt(total)} sub={`${summary.length} agent types`} />
+        <Tile label="failure rate" tone="signal" value={`${pct(totalFailed, total)}%`} sub="error / abandoned" />
+        <Tile label="busiest" value={summary[0]?.subagent_type ?? '—'} sub={summary[0] ? `${fmtHours(summary[0].ms)} of compute` : undefined} />
+      </div>
+
       <OperatorFilter operators={operators} selected={operator} path="/agents" extra={{ agent }} />
 
       <div className="grid main-side">
-        <Panel title="By agent" note="sorted by output tokens">
+        <Panel title="By agent" note="sorted by compute time">
           {summary.length ? (
-            <div className="scroll">
+            <div className="scroll cap">
               <table className="tbl">
-                <thead><tr><th>Agent</th><th className="num">Calls</th><th className="num">OK</th><th className="num">Failed</th><th className="num">Sessions</th><th className="num">Turns</th><th className="num">Tools</th><th className="num">Out</th><th className="num">Cache read</th><th className="num">Avg time</th><th>Last</th></tr></thead>
+                <thead><tr><th>Agent</th><th className="num">Compute</th><th className="num">Calls</th><th className="num">OK</th><th className="num">Failed</th><th className="num">Sessions</th><th className="num">Turns</th><th className="num">Tools</th><th className="num">Out</th><th className="num">Cache read</th><th className="num">Avg time</th><th>Last</th></tr></thead>
                 <tbody>
                   {summary.map((a) => (
                     <tr key={a.subagent_type}>
                       <td><Link className="rowlink" href={`/agents?agent=${encodeURIComponent(a.subagent_type)}${operator ? `&operator=${encodeURIComponent(operator)}` : ''}`}><span className="chip agent">{a.subagent_type}</span></Link></td>
+                      <td className="num">{fmtHours(a.ms)}</td>
                       <td className="num">{a.calls}</td>
                       <td className="num">{a.ok}</td>
                       <td className="num">{Number(a.failed) ? <span className="err-text">{a.failed}</span> : 0}</td>
@@ -60,8 +70,8 @@ export default async function Agents({ searchParams }: { searchParams: Promise<R
             </div>
           ) : <Empty>No agent calls recorded yet.</Empty>}
         </Panel>
-        <Panel title="Output tokens">
-          <div className="panel-body"><Bars rows={summary.map((a) => ({ name: a.subagent_type, value: Number(a.tokens_out) }))} /></div>
+        <Panel title="By compute time">
+          <div className="panel-body"><Bars fmt={fmtHours} rows={summary.map((a) => ({ name: a.subagent_type, value: Number(a.ms) }))} /></div>
         </Panel>
       </div>
 

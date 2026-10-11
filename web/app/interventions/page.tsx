@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import AutoRefresh from '@/components/AutoRefresh';
 import OperatorFilter from '@/components/OperatorFilter';
-import { DbError, Empty, Panel, Pill } from '@/components/ui';
+import { DbError, Empty, Panel, Pill, Tile } from '@/components/ui';
 import { safe } from '@/lib/db';
 import { ago, fmtInt, fmtTime } from '@/lib/format';
 import { interventionCounts, interventions, operatorsWithCounts } from '@/lib/queries';
@@ -50,12 +50,12 @@ export default async function Interventions({ searchParams }: { searchParams: Pr
 
       <OperatorFilter operators={operators} selected={operator} path="/interventions" extra={showAll ? { all: '1' } : {}} />
 
-      <div className="stats">
-        <div className="stat"><div className={`v${Number(counts.open) ? ' live' : ''}`}>{fmtInt(counts.open)}</div><div className="l">to do</div><div className="s">{fmtInt(counts.waiting)} asked · {fmtInt(counts.pending)} not asked yet</div></div>
-        <div className="stat"><div className="v">{fmtInt(counts.dev_open)}</div><div className="l">needs a dev</div><div className="s">plan · code review · merge</div></div>
-        <div className="stat"><div className="v">{fmtInt(counts.qa_open)}</div><div className="l">needs QA</div><div className="s">test cases</div></div>
-        <div className="stat"><div className="v">{fmtInt(counts.tickets_waiting)}</div><div className="l">tickets affected</div></div>
-        <div className="stat"><div className="v">{fmtInt(counts.approved)}</div><div className="l">answered</div></div>
+      <div className="tiles sec">
+        <Tile lead label="to do" live={Number(counts.open) > 0} value={fmtInt(counts.open)} sub={`${fmtInt(counts.waiting)} asked · ${fmtInt(counts.pending)} not asked yet`} />
+        <Tile label="needs a dev" value={fmtInt(counts.dev_open)} sub="plan · code review · merge" />
+        <Tile label="needs QA" value={fmtInt(counts.qa_open)} sub="test cases" />
+        <Tile label="tickets affected" value={fmtInt(counts.tickets_waiting)} />
+        <Tile label="answered" tone="ok" value={fmtInt(counts.approved)} />
       </div>
 
       <div className="filter">
