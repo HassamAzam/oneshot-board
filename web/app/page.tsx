@@ -124,7 +124,7 @@ export default async function Fleet({ searchParams }: { searchParams: Promise<Re
         ) : <Empty>Nothing running. Sessions appear here within seconds of a phase spawning.</Empty>}
       </Panel>
 
-      <Panel title="Recent runs" note="newest first">
+      <Panel title="Recent tickets" note="latest run of each · newest first">
         {runs.length ? (
           <div className="scroll cap">
             <table className="tbl">

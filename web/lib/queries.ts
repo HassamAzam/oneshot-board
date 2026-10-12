@@ -146,19 +146,29 @@ export type RunWithPhases = Run & {
   github_login: string | null; user_email: string | null; hostname: string | null;
   n_sessions: string; tokens_out: string; weighted: string; phases: PhaseChip[] | null;
 };
+/**
+ * One row per ticket — its most recent run — newest first. A ticket that ran several
+ * times (a rerun after the repo change, say) collapses to a single row instead of
+ * repeating; `distinct on (ticket_iid)` keeps the latest, then the outer query orders
+ * those by recency. The per-ticket detail page still lists every run.
+ */
 export async function recentRuns(limit = 40, operator?: string) {
   return q<RunWithPhases>(`
-    select r.*, o.github_login, o.user_email, o.hostname,
-      (select count(*) from sessions s where s.run_id = r.run_id) as n_sessions,
-      (select coalesce(sum(tokens_out),0) from sessions s where s.run_id = r.run_id) as tokens_out,
-      (select coalesce(sum(weighted),0) from sessions s where s.run_id = r.run_id) as weighted,
-      (select json_agg(json_build_object('phase', s.phase, 'lap', s.lap, 'status', s.status, 'model', s.model,
-                                         'turns', s.turns, 'tokens_out', s.tokens_out, 'session_id', s.session_id)
-                       order by s.started_at nulls last, s.lap)
-         from sessions s where s.run_id = r.run_id) as phases
-    from runs r left join operators o on o.id = r.operator_id
-    where ($2::text is null or r.operator_id = $2)
-    order by r.started_at desc nulls last limit $1`, [limit, op(operator)]);
+    select * from (
+      select distinct on (r.ticket_iid)
+        r.*, o.github_login, o.user_email, o.hostname,
+        (select count(*) from sessions s where s.run_id = r.run_id) as n_sessions,
+        (select coalesce(sum(tokens_out),0) from sessions s where s.run_id = r.run_id) as tokens_out,
+        (select coalesce(sum(weighted),0) from sessions s where s.run_id = r.run_id) as weighted,
+        (select json_agg(json_build_object('phase', s.phase, 'lap', s.lap, 'status', s.status, 'model', s.model,
+                                           'turns', s.turns, 'tokens_out', s.tokens_out, 'session_id', s.session_id)
+                         order by s.started_at nulls last, s.lap)
+           from sessions s where s.run_id = r.run_id) as phases
+      from runs r left join operators o on o.id = r.operator_id
+      where ($2::text is null or r.operator_id = $2)
+      order by r.ticket_iid, r.started_at desc nulls last
+    ) t
+    order by started_at desc nulls last limit $1`, [limit, op(operator)]);
 }
 
 export async function agentSummary(operator?: string) {
